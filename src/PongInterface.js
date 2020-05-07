@@ -3,6 +3,7 @@ import Konva from 'konva';
 import { Stage, Layer, Rect, Line } from 'react-konva';
 
 import { widthOpposite, heightOpposite } from './utility';
+import PlayerStick from './PlayerStick';
 
 /**
  * order of layers is determined by order in which components are declared
@@ -14,25 +15,25 @@ function BorderLine(props) {
           stroke="black" />;
 }
 
-/* left and right vertical border line */
-function Borders(props) {
-  /* points define where MIDDLE of line goes */
-  let lineWidth = 10;
-  let adjustedPointsLeftBorder = props.borderLimits.slice(0, 4).map((element, i) => {
-    if (i % 2 === 0) return element - lineWidth / 2; // only adjust X values
-    return element;
-  });
+// /* left and right vertical border line */
+// function Borders(props) {
+//   /* points define where MIDDLE of line goes */
+//   let lineWidth = 10;
+//   let adjustedPointsLeftBorder = props.borderLimits.slice(0, 4).map((element, i) => {
+//     if (i % 2 === 0) return element - lineWidth / 2; // only adjust X values
+//     return element;
+//   });
 
-  let adjustedPointsRightBorder = props.borderLimits.slice(4).map((element, i) => {
-    if (i % 2 === 0) return element + lineWidth / 2; // only adjust X values
-    return element;
-  });
+//   let adjustedPointsRightBorder = props.borderLimits.slice(4).map((element, i) => {
+//     if (i % 2 === 0) return element + lineWidth / 2; // only adjust X values
+//     return element;
+//   });
 
-  return (<>
-    <BorderLine points={adjustedPointsLeftBorder}/>
-    <BorderLine points={adjustedPointsRightBorder}/>
-  </>)
-}
+//   return (<>
+//     <BorderLine points={adjustedPointsLeftBorder}/>
+//     <BorderLine points={adjustedPointsRightBorder}/>
+//   </>)
+// }
 
 function BackgroundRect(props) {
   let backgroundColor = "#94C9F0";
@@ -73,12 +74,12 @@ class GameManager extends Component {
 
     this.state = {
       ballPosition: props.startBall, // [x, y]
-      ballSpeed: [-0.5, 0.5], // [speedx, speedy], in px/ms
+      ballSpeed: [-0.5, 0], // [speedx, speedy], in px/ms
       ballSize: 50, /* height & width */
       ongoingGame: true, 
-      lengthPlayer: window.innerHeight,  // length of stick of player
-      leftPlayerY: 0, // top
-      rightPlayerY: 0
+      lengthPlayer: 100,  // length of stick of player in px
+      leftPlayerY: props.borderLimits[1], // top
+      rightPlayerY: props.borderLimits[1]
     }
 
     this.runPlay = this.runPlay.bind(this);
@@ -151,8 +152,17 @@ class GameManager extends Component {
   render() {
     return (
       <Layer>
-        <Borders borderLimits={this.props.borderLimits}/>
-        {/* Represent players for now */}
+         {/* Represent left and right players */}
+        <PlayerStick borderLimits={this.props.borderLimits}
+          y={this.state.leftPlayerY} leftPlayer={true} 
+          lengthPlayer={this.state.lengthPlayer}
+          />
+
+        <PlayerStick borderLimits={this.props.borderLimits}
+          y={this.state.rightPlayerY} leftPlayer={false} 
+          lengthPlayer={this.state.lengthPlayer}
+          />
+        
 
         <Ball borderLimits={this.props.borderLimits} 
           position={this.state.ballPosition}
