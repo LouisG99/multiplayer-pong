@@ -32,14 +32,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # silence the deprecation w
 db.init_app(app)
 
 
-import manage
+import manage # custom flask command for db management
 
 @app.route('/time')
 def get_current_time():
   return {'time': time.time()}
 
+
+from sqlalchemy import create_engine
+engine = create_engine(DB_URL, echo=True)
+
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+session = Session()
+
 @app.route('/db')
 def test_db():
-  data = YourModel.query.all()
+  data = session.query(YourModel).all()
   print(data)
   return {'data': 'hello'}
