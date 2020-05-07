@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+
 import logo from './logo.svg';
 import './App.css';
+import PongInterface from './PongInterface';
 
 function App() {
   const [currentTime, setCurrentTime] = useState(0);
@@ -14,7 +16,7 @@ function App() {
   
   return (
     <div className="App">
-      <header className="App-header">
+      {/* <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
           Edit <code>src/App.js</code> and save to reload.
@@ -28,7 +30,10 @@ function App() {
           Learn React
         </a>
         <p>The current time is {currentTime}.</p>
-      </header>
+
+      </header> */}
+
+      <PongInterface/>
     </div>
   );
 }
