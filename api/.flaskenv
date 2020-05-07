@@ -1,2 +1,7 @@
 FLASK_APP=api.py
 FLASK_ENV=development
+
+POSTGRES_URL="127.0.0.1:5432"
+POSTGRES_USER="postgres"
+POSTGRES_PW="password"
+POSTGRES_DB="my_db"
