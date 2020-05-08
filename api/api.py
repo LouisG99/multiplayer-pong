@@ -2,7 +2,7 @@ import time;
 import os;
 
 from flask import Flask
-from models import db, YourModel
+from models import db, Users
 
 def get_env_variable(name):
   try:
@@ -32,12 +32,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # silence the deprecation w
 db.init_app(app)
 
 
+
 import manage # custom flask command for db management
-
-@app.route('/time')
-def get_current_time():
-  return {'time': time.time()}
-
 
 from sqlalchemy import create_engine
 engine = create_engine(DB_URL, echo=True)
@@ -46,8 +42,18 @@ from sqlalchemy.orm import sessionmaker
 Session = sessionmaker(bind=engine)
 session = Session()
 
+
+from AuthAPI import auth_api
+app.register_blueprint(auth_api)
+
+
 @app.route('/db')
 def test_db():
-  data = session.query(YourModel).all()
+  data = session.query(Users).all()
   print(data)
   return {'data': 'hello'}
+
+
+@app.route('/time')
+def get_current_time():
+  return {'time': time.time()}

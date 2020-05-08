@@ -9,7 +9,9 @@ class BaseModel(db.Model):
   # define here __repr__ and json methods or any common method
   # that you need for all your models
 
-class YourModel(BaseModel):
+class Users(BaseModel):
   """model for one of your table"""
-  __tablename__ = 'my_table'
-  id = db.Column(db.Integer, primary_key=True)
+  __tablename__ = 'Users'
+  uid = db.Column(db.Integer, primary_key=True)
+  username = db.Column(db.String(20))
+  password = db.Column(db.String(20))
