@@ -2,38 +2,9 @@ import React, { Component } from 'react';
 import Konva from 'konva';
 import { Stage, Layer, Rect, Line } from 'react-konva';
 
-import { widthOpposite, heightOpposite } from './utility';
+import { widthOpposite, heightOpposite, isWithinXBoundaries, isWithinYBoundaries } from './utility';
 import PlayerStick from './PlayerStick';
 
-/**
- * order of layers is determined by order in which components are declared
- * i.e. component declared first will be the one further back
- */
-
-function BorderLine(props) {
-  return <Line points={props.points} strokeWidth={10}
-          stroke="black" />;
-}
-
-// /* left and right vertical border line */
-// function Borders(props) {
-//   /* points define where MIDDLE of line goes */
-//   let lineWidth = 10;
-//   let adjustedPointsLeftBorder = props.borderLimits.slice(0, 4).map((element, i) => {
-//     if (i % 2 === 0) return element - lineWidth / 2; // only adjust X values
-//     return element;
-//   });
-
-//   let adjustedPointsRightBorder = props.borderLimits.slice(4).map((element, i) => {
-//     if (i % 2 === 0) return element + lineWidth / 2; // only adjust X values
-//     return element;
-//   });
-
-//   return (<>
-//     <BorderLine points={adjustedPointsLeftBorder}/>
-//     <BorderLine points={adjustedPointsRightBorder}/>
-//   </>)
-// }
 
 function BackgroundRect(props) {
   let backgroundColor = "#94C9F0";
@@ -43,7 +14,6 @@ function BackgroundRect(props) {
 
 class Ball extends Component {
   /* x, y define where top left of object is */
-
   constructor(props) {
     super(props);
 
@@ -79,8 +49,11 @@ class GameManager extends Component {
       ongoingGame: true, 
       lengthPlayer: 100,  // length of stick of player in px
       leftPlayerY: props.borderLimits[1], // top
-      rightPlayerY: props.borderLimits[1]
+      rightPlayerY: props.borderLimits[1], 
+      playerSpeed: 20 // px move per keypress
     }
+
+    this.handleKeyPress = this.handleKeyPress.bind(this);
 
     this.runPlay = this.runPlay.bind(this);
     this.handleBoundaries = this.handleBoundaries.bind(this);
@@ -88,9 +61,33 @@ class GameManager extends Component {
     this.reboundBallXSide = this.reboundBallXSide.bind(this);
     this.reboundBallYSide = this.reboundBallYSide.bind(this);
     this.moveBall = this.moveBall.bind(this);
-
-    this.runPlay();
   }
+
+  componentDidMount() {
+    this.runPlay();
+
+    window.addEventListener('keydown', this.handleKeyPress);
+  }
+
+  handleKeyPress(e) {
+    if (e.keyCode !== 38 && e.keyCode !== 40) return;
+
+    this.setState((state, props) => {
+      let newLeftY = state.leftPlayerY;
+
+      if (e.keyCode === 38) { // up key
+        newLeftY -= state.playerSpeed;
+        newLeftY = Math.max(newLeftY, props.borderLimits[1]);
+      }
+      else if (e.keyCode === 40) { // down key
+        newLeftY += state.playerSpeed;
+        newLeftY = Math.min(newLeftY, props.borderLimits[3] - state.lengthPlayer);
+      }
+      
+      return { leftPlayerY : newLeftY };
+    });
+  }
+
 
   runPlay() {
     let ballMvmtTimer = setInterval(() => {
@@ -101,13 +98,14 @@ class GameManager extends Component {
     this.ballMvmtTimer = ballMvmtTimer;
   }
 
-  checkPlayerThere(x, y) {
+  checkPlayerThere(x, topY) {
+    let bottomY = topY + this.state.ballSize;
     let limitXLeft = this.props.borderLimits[0];
 
     let state = this.state;
     let playerTop = (x < limitXLeft) ? state.leftPlayerY : state.rightPlayerY;
 
-    return (y >= playerTop && y <= playerTop + state.lengthPlayer);
+    return (bottomY >= playerTop && topY <= playerTop + state.lengthPlayer);
   }
 
   reboundBallXSide() {
@@ -123,7 +121,6 @@ class GameManager extends Component {
   }
 
   handleBoundaries(x, y) {
-    console.log("handle nounds")
     let inXBounds = isWithinXBoundaries(x, y, this.props.borderLimits, this.state.ballSize);
     let inYBounds = isWithinYBoundaries(x, y, this.props.borderLimits, this.state.ballSize);
     if (inXBounds && inYBounds) return;
@@ -140,7 +137,7 @@ class GameManager extends Component {
   }
 
   moveBall() {
-    this.setState((state, props) => {
+    this.setState(state => {
       let newX = state.ballPosition[0] + state.ballSpeed[0] * GameManager.timeoutPeriod;
       let newY = state.ballPosition[1] + state.ballSpeed[1] * GameManager.timeoutPeriod;
 
@@ -172,13 +169,6 @@ class GameManager extends Component {
   }
 }
 
-let isWithinXBoundaries = function(x, y, borderLimits, size) {
-  return (x >= borderLimits[0] && x + size <= borderLimits[4]);
-};
-
-let isWithinYBoundaries = function(x, y, borderLimits, size) {
-  return (y >= borderLimits[1] && y + size <= borderLimits[3])
-};
 
 class PongInterface extends Component {
   constructor(props) {
@@ -203,6 +193,8 @@ class PongInterface extends Component {
   render() {
     return (
       <Stage width={window.innerWidth} height={window.innerHeight}>
+        {/* order of layers is determined by order in which components are declared
+        i.e. component declared first will be the one further back */}
 
         {/* Background Layer */}
         <Layer> 
@@ -212,6 +204,7 @@ class PongInterface extends Component {
         {/* Players + Ball Layer */}
         <GameManager borderLimits={this.state.borderLimits} 
           startBall={this.state.startBall} />
+
       </Stage>
     );
   }

@@ -23,7 +23,6 @@ class PlayerStick extends Component {
     let y = this.props.y;
     let points = [this.state.x, y, this.state.x, y + this.props.lengthPlayer];
     
-    console.log(points)
     return <Line points={points} strokeWidth={this.state.lineWidth} 
       stroke="black"/>;
   }
