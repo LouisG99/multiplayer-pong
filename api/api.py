@@ -13,6 +13,7 @@ def get_env_variable(name):
 
 
 app = Flask(__name__)
+app.secret_key = b'\x10t\xc1\xc2X\x18%\xa8\xfb9oI \xbe\x0fE' # used for signing session
 
 # POSTGRESQL db config
 POSTGRES_URL = get_env_variable("POSTGRES_URL")
@@ -39,8 +40,8 @@ from sqlalchemy import create_engine
 engine = create_engine(DB_URL, echo=True)
 
 from sqlalchemy.orm import sessionmaker
-Session = sessionmaker(bind=engine)
-session = Session()
+psql_Session = sessionmaker(bind=engine)
+psql_session = psql_Session()
 
 
 from AuthAPI import auth_api
@@ -49,7 +50,7 @@ app.register_blueprint(auth_api)
 
 @app.route('/db')
 def test_db():
-  data = session.query(Users).all()
+  data = psql_session.query(Users).all()
   print(data)
   return {'data': 'hello'}
 

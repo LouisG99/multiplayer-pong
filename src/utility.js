@@ -5,18 +5,42 @@ function heightOpposite(y) {
   return window.innerHeight - y;
 }
 
-let isWithinXBoundaries = function(x, y, borderLimits, size) {
+function isWithinXBoundaries(x, y, borderLimits, size) {
   return (x >= borderLimits[0] && x + size <= borderLimits[4]);
-};
+}
 
-let isWithinYBoundaries = function(x, y, borderLimits, size) {
+function isWithinYBoundaries(x, y, borderLimits, size) {
   return (y >= borderLimits[1] && y + size <= borderLimits[3])
-};
+}
+
+
+/* returns promise containing Raw Response */
+function sendPostRequest(api, body) {
+  return fetch(api, {
+    method: 'POST', 
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
+/* returns promise containing Raw Response */
+function sendGetRequest(api) {
+  return fetch(api, {
+    method: 'GET', 
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+}
 
 
 export { 
   widthOpposite, 
   heightOpposite,
   isWithinXBoundaries,
-  isWithinYBoundaries
+  isWithinYBoundaries, 
+  sendPostRequest, 
+  sendGetRequest
 };
