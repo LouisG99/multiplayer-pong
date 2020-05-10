@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { sendPostRequest } from './utility';
 
-function GameCodeDisplay(props) {
+import socket from './Sockets';
 
+function GameCodeDisplay(props) {
+  if (!props.gameCode) return null;
+
+  function handleJoinGame() {
+    socket.emit('join game', { socketRoom_id: props.gameCode })
+  }
 
   return(
-    <h2>{props.gameCode}</h2>
+    <div>
+      <h2>Game Code is: {props.gameCode}</h2>
+      <button onClick={handleJoinGame}>Join Game</button>
+    </div>
   )
 }
 
@@ -21,11 +30,13 @@ function GameCreator() {
       return;
     }
     
-    const rawResponse = sendPostRequest('/api/create_game', 
-      { numPlayers: numPlayers }
+    const rawResponse = await sendPostRequest('/api/create_game', 
+      { num_players: numPlayers }
     );
 
     const content = await rawResponse.json();
+    setGameCode(content.socketRoom_id)
+    console.log(content)
   }
 
   return(
@@ -33,7 +44,7 @@ function GameCreator() {
       <h2>Create a game</h2>
       <input type="text" placeholder="Number of players" onChange={handleNumPlayersChange}/>
       <button type="submit" onClick={handleCreateGame}>Create Game</button>
-      <GameCodeDisplay gameCode={numPlayers}/>
+      <GameCodeDisplay gameCode={gameCode}/>
     </div>
   )
 }

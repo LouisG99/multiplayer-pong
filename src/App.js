@@ -8,6 +8,7 @@ import Navigation from './Navigation';
 import Landing from './Landing';
 import PongInterface from './PongInterface';
 import Matchmaker from './Matchmaker';
+import socket from './Sockets';
 
 function App() {
   const [currentTime, setCurrentTime] = useState(0);
