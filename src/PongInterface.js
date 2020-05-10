@@ -48,8 +48,10 @@ class GameManager extends Component {
       ballSize: 50, /* height & width */
       ongoingGame: true, 
       lengthPlayer: 100,  // length of stick of player in px
-      leftPlayerY: props.borderLimits[1], // top
-      rightPlayerY: props.borderLimits[1], 
+      playersY: [props.borderLimits[1], props.borderLimits[1]], // only 2 players for normal case
+      playerIndex: 0, // player on this client
+      // leftPlayerY: props.borderLimits[1], // top
+      // rightPlayerY: props.borderLimits[1], 
       playerSpeed: 20 // px move per keypress
     }
 
@@ -73,18 +75,21 @@ class GameManager extends Component {
     if (e.keyCode !== 38 && e.keyCode !== 40) return;
 
     this.setState((state, props) => {
-      let newLeftY = state.leftPlayerY;
+      let newY = state.playersY[state.playerIndex];
 
       if (e.keyCode === 38) { // up key
-        newLeftY -= state.playerSpeed;
-        newLeftY = Math.max(newLeftY, props.borderLimits[1]);
+        newY -= state.playerSpeed;
+        newY = Math.max(newY, props.borderLimits[1]);
       }
       else if (e.keyCode === 40) { // down key
-        newLeftY += state.playerSpeed;
-        newLeftY = Math.min(newLeftY, props.borderLimits[3] - state.lengthPlayer);
+        newY += state.playerSpeed;
+        newY = Math.min(newY, props.borderLimits[3] - state.lengthPlayer);
       }
       
-      return { leftPlayerY : newLeftY };
+      let newPlayersY = state.playersY;
+      newPlayersY[state.playerIndex] = newY;
+
+      return { playersY : newPlayersY };
     });
   }
 
@@ -103,7 +108,7 @@ class GameManager extends Component {
     let limitXLeft = this.props.borderLimits[0];
 
     let state = this.state;
-    let playerTop = (x < limitXLeft) ? state.leftPlayerY : state.rightPlayerY;
+    let playerTop = (x < limitXLeft) ? state.playersY[0] : state.playersY[1];
 
     return (bottomY >= playerTop && topY <= playerTop + state.lengthPlayer);
   }
@@ -151,12 +156,12 @@ class GameManager extends Component {
       <Layer>
          {/* Represent left and right players */}
         <PlayerStick borderLimits={this.props.borderLimits}
-          y={this.state.leftPlayerY} leftPlayer={true} 
+          y={this.state.playersY[0]} leftPlayer={true} 
           lengthPlayer={this.state.lengthPlayer}
           />
 
         <PlayerStick borderLimits={this.props.borderLimits}
-          y={this.state.rightPlayerY} leftPlayer={false} 
+          y={this.state.playersY[1]} leftPlayer={false} 
           lengthPlayer={this.state.lengthPlayer}
           />
         

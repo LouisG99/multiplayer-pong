@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { sendPostRequest, sendGetRequest } from './utility';
 
 function Login() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  function handleUsernameChange(e) { setUsername(e.target.value) }
+  function handlePasswordChange(e) { setPassword(e.target.value) }
+
   async function handleLoginSubmit() {
     const rawResponse = await sendPostRequest('/api/login', 
-      { username: 'louis', password: 'louis'}
+      { username: username, password: password}
     );
     
     const content = await rawResponse.json();
@@ -13,8 +19,8 @@ function Login() {
 
   return(
     <div>
-      <input type="text" placeholder="Username" required/>
-      <input type="psw" placeholder="Password" required/>
+      <input type="text" placeholder="Username" onChange={handleUsernameChange}/>
+      <input type="psw" placeholder="Password" onChange={handlePasswordChange}/>
       <button onClick={handleLoginSubmit}>Login</button>
     </div>
   )
@@ -33,9 +39,15 @@ function Logout() {
 }
 
 function SignUp() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  function handleUsernameChange(e) { setUsername(e.target.value) }
+  function handlePasswordChange(e) { setPassword(e.target.value) }
+
   async function handleSignupSubmit() {
     const rawResponse = await sendPostRequest('/api/signup', 
-      { username: 'louis', password: 'louis'}
+      { username: username, password: password }
     );
     
     const content = await rawResponse.json();
@@ -44,8 +56,8 @@ function SignUp() {
 
   return(
     <div>
-      <input type="text" placeholder="Username" required/>
-      <input type="psw" placeholder="Password" required/>
+      <input type="text" placeholder="Username" onChange={handleUsernameChange}/>
+      <input type="psw" placeholder="Password" onChange={handlePasswordChange}/>
       <button onClick={handleSignupSubmit}>Sign Up</button>
     </div>
   )

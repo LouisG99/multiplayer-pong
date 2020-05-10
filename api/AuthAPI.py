@@ -39,6 +39,8 @@ def logout_user():
 def signup_user():
   username = request.json['username']
   password = request.json['password']
+  # if len(username) > 20 or len(password) > 20:
+  #   return { 'success': False, 'message': 'Username not available' }
   if getUserRecord(username) is not None:
     return { 'success': False, 'message': 'Username not available' }
   
