@@ -50,8 +50,6 @@ class GameManager extends Component {
       lengthPlayer: 100,  // length of stick of player in px
       playersY: [props.borderLimits[1], props.borderLimits[1]], // only 2 players for normal case
       playerIndex: 0, // player on this client
-      // leftPlayerY: props.borderLimits[1], // top
-      // rightPlayerY: props.borderLimits[1], 
       playerSpeed: 20 // px move per keypress
     }
 
@@ -71,6 +69,10 @@ class GameManager extends Component {
     window.addEventListener('keydown', this.handleKeyPress);
   }
 
+
+  userKeyMovesLoop() {
+    
+  }
   handleKeyPress(e) {
     if (e.keyCode !== 38 && e.keyCode !== 40) return;
 

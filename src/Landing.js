@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { sendPostRequest, sendGetRequest } from './utility';
 
+import GameCreator from './GameCreator';
+
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -70,6 +72,7 @@ function Landing() {
       <Login/>
       <Logout/>
       <SignUp/>
+      <GameCreator/>
     </>
   )
 }

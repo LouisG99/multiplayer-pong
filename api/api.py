@@ -45,7 +45,9 @@ psql_session = psql_Session()
 
 
 from AuthAPI import auth_api
+from MatchmakeAPI import matchmake_api
 app.register_blueprint(auth_api)
+app.register_blueprint(matchmake_api)
 
 
 @app.route('/db')
