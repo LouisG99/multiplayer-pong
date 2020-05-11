@@ -1,4 +1,3 @@
-from flask import session
 from flask_socketio import emit, join_room, leave_room, ConnectionRefusedError
 
 from models import ActiveGames, ActivePlayers
@@ -12,18 +11,20 @@ def handle_my_custom_event(json):
   emit('ser', {'s': 123})
 
 
-# @socketio.on('connect')
-# def handle_new_connection():
-#   print('new connection')
-#   if 'username' not in session:
-#     print('kashdk')
-#     raise ConnectionRefusedError('not authenticated')
+from flask import session, request
+
+@socketio.on('connect')
+def handle_new_connection():
+  if 'username' not in session:
+    print('kashdk')
+    raise ConnectionRefusedError('not authenticated')
     
-  
-#   join_room(session['username'])
+  join_room(session['username'])
+
 
 @socketio.on('disconnect')
 def handle_disconnection():
+  print('disconnectde')
   leave_room(session['username'])
 
 

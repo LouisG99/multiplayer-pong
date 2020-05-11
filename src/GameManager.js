@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { socketGame } from './SocketWrapper';
 import PongInterface from './PongInterface';
 
-// socketGame.socket.on('game ready', GameManager.handleGameStart);
 
 function GameManager(props) {
   const [waitingForPlayers, setWaitingForPlayers] = useState(true);
@@ -20,6 +19,7 @@ function GameManager(props) {
 
   useEffect(() => {
     console.log('use effect')
+    socketGame.connect();
     socketGame.joinGameRoom();
 
     socketGame.socket.on('all players ready', handleAllPlayersReady);
