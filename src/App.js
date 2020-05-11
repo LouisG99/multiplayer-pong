@@ -7,8 +7,8 @@ import './App.css';
 import Navigation from './Navigation';
 import Landing from './Landing';
 import PongInterface from './PongInterface';
+import GameManager from './GameManager';
 import Matchmaker from './Matchmaker';
-import socket from './Sockets';
 
 function App() {
   const [currentTime, setCurrentTime] = useState(0);
@@ -23,12 +23,13 @@ function App() {
   return (
     <div className="App">
       <HashRouter>
-        <Route path='/' component={Navigation}/>
+        {/* <Route path='/' component={Navigation}/> */}
 
         <Switch>
           <Route path='/' exact component={Landing}/>
           <Route path='/matchmaker' exact component={Matchmaker}/>
-          <Route path='/game' exact component={PongInterface}/>
+          <Route path='/game' exact component={GameManager}/>
+          {/* <Route path='/game' exact component={PongInterface}/> */}
         </Switch>
       </HashRouter>
     </div>

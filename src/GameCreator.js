@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { sendPostRequest } from './utility';
 
-import socket from './Sockets';
+import { socketGame } from './SocketWrapper';
+import { Redirect } from 'react-router-dom';
 
 function GameCodeDisplay(props) {
+  const [redirect, setRedirect] = useState(false);
+
   if (!props.gameCode) return null;
 
   function handleJoinGame() {
-    socket.emit('join game', { socketRoom_id: props.gameCode })
+    setRedirect(true);
+    // socket.emit('join game', { socketRoom_id: props.gameCode })
   }
+
+  if (redirect)
+    return <Redirect to={{
+      pathname: '/game',
+      state: {gameCode: props.gameCode}
+    }}/>
+
 
   return(
     <div>
@@ -36,6 +47,8 @@ function GameCreator() {
 
     const content = await rawResponse.json();
     setGameCode(content.socketRoom_id)
+    socketGame.gameCode = content.socketRoom_id;
+
     console.log(content)
   }
 

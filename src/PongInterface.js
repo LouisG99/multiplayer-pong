@@ -44,7 +44,7 @@ class GameManager extends Component {
 
     this.state = {
       ballPosition: props.startBall, // [x, y]
-      ballSpeed: [-0.5, 0], // [speedx, speedy], in px/ms
+      ballSpeed: [0, 0], // [speedx, speedy], in px/ms
       ballSize: 50, /* height & width */
       ongoingGame: true, 
       lengthPlayer: 100,  // length of stick of player in px
@@ -73,6 +73,8 @@ class GameManager extends Component {
   userKeyMovesLoop() {
     
   }
+
+  
   handleKeyPress(e) {
     if (e.keyCode !== 38 && e.keyCode !== 40) return;
 
@@ -198,6 +200,10 @@ class PongInterface extends Component {
   }
 
   render() {
+    if (this.props.waitingForPlayers) 
+      return <h2>Waiting for players</h2>
+    
+    
     return (
       <Stage width={window.innerWidth} height={window.innerHeight}>
         {/* order of layers is determined by order in which components are declared
