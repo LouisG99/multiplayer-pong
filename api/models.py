@@ -27,8 +27,8 @@ class ActiveGames(BaseModel):
 
 class ActivePlayers(BaseModel):
   __tablename__ = 'ActivePlayers'
-  user_id = db.Column(UUID, db.ForeignKey(Users.id), primary_key=True)
-  game_id = db.Column(UUID, db.ForeignKey(ActiveGames.id), primary_key=True)
+  user_id = db.Column(UUID(as_uuid=True), db.ForeignKey(Users.id), primary_key=True)
+  game_id = db.Column(UUID(as_uuid=True), db.ForeignKey(ActiveGames.id), nullable=False)
   playerIndex = db.Column(db.Integer, nullable=False)
   playerScore = db.Column(db.Integer, default=0, nullable=False)
 

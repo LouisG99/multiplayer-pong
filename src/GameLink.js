@@ -5,25 +5,26 @@ import { socketGame } from './SocketWrapper';
 import { Redirect } from 'react-router-dom';
 
 function GameCodeDisplay(props) {
+  const [gameCode, setGameCode] = useState('');
   const [redirect, setRedirect] = useState(false);
 
-  if (!props.gameCode) return null;
-
-  function handleJoinGame() {
+  function handleGameCodeChange(e) { setGameCode(String(e.target.value)) }
+  function handleJoinGame() { 
+    socketGame.gameCode = gameCode;
     setRedirect(true);
-    // socket.emit('join game', { socketRoom_id: props.gameCode })
   }
 
-  if (redirect)
-    return <Redirect to={{
-      pathname: '/game',
-      state: {gameCode: props.gameCode}
-    }}/>
+  useEffect(() => {
+    setGameCode(props.gameCode);
+  }, [props.gameCode])
 
+  if (redirect)
+    return <Redirect to={{ pathname: '/game', state: {gameCode: gameCode} }}/>
 
   return(
     <div>
       <h2>Game Code is: {props.gameCode}</h2>
+      <input type="text" placeholder="Game code" onChange={handleGameCodeChange} value={gameCode}/>
       <button onClick={handleJoinGame}>Join Game</button>
     </div>
   )
@@ -47,7 +48,6 @@ function GameCreator() {
 
     const content = await rawResponse.json();
     setGameCode(content.socketRoom_id)
-    socketGame.gameCode = content.socketRoom_id;
 
     console.log(content)
   }
@@ -62,4 +62,28 @@ function GameCreator() {
   )
 }
 
-export default GameCreator;
+
+// function JoinGame() {
+//   const [gameCode, setGameCode] = useState(null);
+
+//   function handleGameCodeChange(e) { setGameCode(String(e.target.value)) }
+
+//   function handleJoinGame() {
+//     if (!gameCode) {
+//       alert('Invalid game code');
+//       return;
+//     }
+
+//     console.log('handleJoinGame');
+//   }
+
+//   return (
+//     <div>
+//       <h2>Join a game by entering code below</h2>
+//       <input type="text" placeholder="Game code" onChange={handleGameCodeChange}/>
+//       <button type="submit" onClick={handleJoinGame}>Join Game</button>
+//     </div>
+//   )
+// }
+
+export { GameCreator };

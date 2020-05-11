@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { sendPostRequest, sendGetRequest } from './utility';
 
-import GameCreator from './GameCreator';
+import  { GameCreator } from './GameLink';
 
 function Login() {
   const [username, setUsername] = useState('');

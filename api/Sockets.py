@@ -1,4 +1,5 @@
 from flask_socketio import emit, join_room, leave_room, ConnectionRefusedError
+from sqlalchemy.dialects.postgresql import UUID
 
 from models import ActiveGames, ActivePlayers
 from api import app, db, psql_session, socketio
@@ -24,7 +25,7 @@ def handle_new_connection():
 
 @socketio.on('disconnect')
 def handle_disconnection():
-  print('disconnectde')
+  print('disconnected')
   leave_room(session['username'])
 
 
@@ -34,50 +35,57 @@ def emit_private(event, data):
 
 
 def get_player_index(user_id, game_id):
-  user_player_query = ActivePlayers.query.filter_by(user_id=user_id, game_id=game_id)
+  user_player_query = ActivePlayers.query.filter_by(user_id=user_id, game_id=game_id).first()
   if user_player_query is not None:
-    return user_player_query.playerIndex
+    return user_player_query.playerIndex, user_player_query
 
   new_index = ActivePlayers.query.filter_by(game_id=game_id).count()
-  return new_index
+  return new_index, None
 
 
+# Creates new record in Active Players if needed and returns index of player 
+# based on order of connection (first-come, first-served)
 def add_as_active_player(game_id):
   user_id = session['user_id']
-  playerIndex = get_player_index(user_id, game_id)
-  newPlayer = ActivePlayers(user_id=user_id, game_id=game_id, playerIndex=playerIndex)
+  playerIndex, newPlayer = get_player_index(user_id, game_id)
+  
+  if newPlayer is None:
+    newPlayer = ActivePlayers(user_id=user_id, game_id=game_id, playerIndex=playerIndex)
+    psql_session.add(newPlayer)
+    psql_session.commit()
+  
+  return playerIndex
 
-  session.add(newPlayer)
-  session.commit()
+
+def all_players_ready_alert(game_id):
+  emit('all players ready', room=game_id)
 
 
 @socketio.on('join game')
 def handle_join_game_event(json):
-  print(session)
-
   if 'socketRoom_id' not in json:
+    emit('invalid game code')
     return
-  print(json['socketRoom_id'])
+
   game_id = json['socketRoom_id']
 
-  game_query = ActiveGames.query.filter_by(id=game_id)
+  try:
+    game_query = ActiveGames.query.filter_by(id=game_id).first()
+  except:
+    game_query = None
+
   if game_query is None:
-    print("query none")
-    # emit()
-    pass
+    print('NONE!')
+    emit('invalid game code')
     return
 
   join_room(game_id)
   print('JOINED ROOM')
+  
+  from gameconfig import config
+  game_config = config.copy()
+  game_config['playerIndex'] = add_as_active_player(game_id)
+  emit_private('game config', game_config)
 
-  # add_as_active_player(game_id)
-
-  game_config = {
-    'test': 5
-  }
-  # emit_private('game config', game_config)
-
-
-  time.sleep(5)
-  emit('all players ready', room=game_id)
-  print('EMITTED')
+  if game_config['playerIndex'] == game_query.numPlayers-1:
+    all_players_ready_alert(game_id)
