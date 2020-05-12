@@ -13,10 +13,10 @@ class SocketWrapper {
     this.socket = io.connect({ transport : ['websocket']});
   }
 
-  joinGameRoom() {
-    console.log('joining room')
-    this.socket.emit('join game', { socketRoom_id: this.gameCode });
-  }
+  // joinGameRoom() {
+  //   console.log('joining room')
+  //   this.socket.emit('join game');
+  // }
 }
 
 

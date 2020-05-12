@@ -15,8 +15,8 @@ function isWithinYBoundaries(x, y, borderLimits, size) {
 
 
 /* returns promise containing Raw Response */
-function sendPostRequest(api, body) {
-  return fetch(api, {
+function sendPostRequest(url, body) {
+  return fetch(url, {
     method: 'POST', 
     headers: {
       'Content-Type': 'application/json'
@@ -26,8 +26,8 @@ function sendPostRequest(api, body) {
 }
 
 /* returns promise containing Raw Response */
-function sendGetRequest(api) {
-  return fetch(api, {
+function sendGetRequest(url) {
+  return fetch(url, {
     method: 'GET', 
     headers: {
       'Content-Type': 'application/json'

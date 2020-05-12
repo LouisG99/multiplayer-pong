@@ -27,3 +27,21 @@ def create_game():
   return { 'success': True, 'socketRoom_id': socketRoom_id }
 
   
+# check game_id is valid and sets session to contain the game_id 
+# (also room id) for future socket communications
+@matchmake_api.route('/api/verify_game_id', methods=['GET'])
+def verify_game_id():
+  user_id = session.get('user_id')
+  game_id = request.args.get('game_id')
+
+  try:
+    game_query = ActiveGames.query.filter_by(id=game_id).first()
+  except:
+    game_query = None
+  
+  if game_query is None:
+    return { 'success': False, 'message': 'Game code is invalid' }
+  
+  session['game_id'] = game_query.id
+  print('verify game id:', session)
+  return { 'success': True }

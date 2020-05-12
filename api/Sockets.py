@@ -16,6 +16,7 @@ from flask import session, request
 
 @socketio.on('connect')
 def handle_new_connection():
+  print('Connect', session)
   if 'username' not in session:
     print('kashdk')
     raise ConnectionRefusedError('not authenticated')
@@ -61,23 +62,15 @@ def all_players_ready_alert(game_id):
   emit('all players ready', room=game_id)
 
 
+# asummes game_id valid as API is called before hand (/api/verify_game_id)
+# and stored in session obj
 @socketio.on('join game')
-def handle_join_game_event(json):
-  if 'socketRoom_id' not in json:
-    emit('invalid game code')
-    return
-
-  game_id = json['socketRoom_id']
-
+def handle_join_game_event():
+  game_id = session['game_id']
   try:
     game_query = ActiveGames.query.filter_by(id=game_id).first()
   except:
     game_query = None
-
-  if game_query is None:
-    print('NONE!')
-    emit('invalid game code')
-    return
 
   join_room(game_id)
   print('JOINED ROOM')
@@ -89,3 +82,9 @@ def handle_join_game_event(json):
 
   if game_config['playerIndex'] == game_query.numPlayers-1:
     all_players_ready_alert(game_id)
+
+
+@socketio.on('player move')
+def handle_player_move(data):
+
+  print('player moved')

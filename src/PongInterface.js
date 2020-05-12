@@ -4,6 +4,7 @@ import { Stage, Layer, Rect, Line } from 'react-konva';
 
 import { widthOpposite, heightOpposite, isWithinXBoundaries, isWithinYBoundaries } from './utility';
 import PlayerStick from './PlayerStick';
+import { socketGame } from './SocketWrapper';
 
 
 function BackgroundRect(props) {
@@ -36,6 +37,13 @@ class Ball extends Component {
   }
 }
 
+function sendSocketUpdatePlayerPos(playerIndex, newY) { // [x, y]
+  socketGame.socket.emit('player move', 
+    { playerIndex: playerIndex,  newY: newY });
+}
+
+
+/* rewrite as functional component eventually */
 class GameManager extends Component {
   static timeoutPeriod = 10; // ms
 
@@ -64,6 +72,8 @@ class GameManager extends Component {
     this.reboundBallXSide = this.reboundBallXSide.bind(this);
     this.reboundBallYSide = this.reboundBallYSide.bind(this);
     this.moveBall = this.moveBall.bind(this);
+
+    this.handleOtherPlayerUpdate = this.handleOtherPlayerUpdate.bind(this);
   }
 
   componentDidMount() {
@@ -71,6 +81,9 @@ class GameManager extends Component {
 
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
+
+    socketGame.socket.on('player move', data => this.handleOtherPlayerUpdate(data));
+
     this.userKeyMovesLoop()
   }
 
@@ -90,6 +103,8 @@ class GameManager extends Component {
 
         let newPlayersY = state.playersY;
         newPlayersY[state.playerIndex] = newY;
+        sendSocketUpdatePlayerPos(state.playerIndex, newY);
+
         return { playersY : newPlayersY };
       })
     }, 20);
@@ -106,29 +121,13 @@ class GameManager extends Component {
     this.setState({ playerMvnt: 0 });
   }
 
-  
-  handleKeyPress(e) {
-    if (e.keyCode !== 38 && e.keyCode !== 40) return;
-
-    this.setState((state, props) => {
-      let newY = state.playersY[state.playerIndex];
-
-      if (e.keyCode === 38) { // up key
-        newY -= state.playerSpeed;
-        newY = Math.max(newY, props.borderLimits[1]);
-      }
-      else if (e.keyCode === 40) { // down key
-        newY += state.playerSpeed;
-        newY = Math.min(newY, props.borderLimits[3] - state.lengthPlayer);
-      }
-      
+  handleOtherPlayerUpdate(update) {
+    this.setState(state => {
       let newPlayersY = state.playersY;
-      newPlayersY[state.playerIndex] = newY;
-
-      return { playersY : newPlayersY };
-    });
+      newPlayersY[update.playerIndex] = update.newY;
+      return { playersY: newPlayersY };
+    })
   }
-
 
   runPlay() {
     let ballMvmtTimer = setInterval(() => {
