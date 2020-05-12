@@ -2,7 +2,7 @@ from flask import Blueprint, request, session
 from api import app, db, psql_session
 from models import Users, ActiveGames
 
-MIN_NUMPLAYERS = 2
+MIN_NUMPLAYERS = 1
 MAX_NUMPLAYERS = 2
 
 matchmake_api = Blueprint('matchmake_api', __name__)

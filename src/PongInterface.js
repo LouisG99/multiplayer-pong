@@ -41,19 +41,22 @@ class GameManager extends Component {
 
   constructor(props) {
     super(props);
+    let gameConfig = props.gameConfig; // defined in gameconfig.py in backend
 
     this.state = {
-      ballPosition: props.startBall, // [x, y]
-      ballSpeed: [0, 0], // [speedx, speedy], in px/ms
-      ballSize: 50, /* height & width */
+      ballPosition: gameConfig.startBall, // [x, y]
+      ballSpeed: gameConfig.initBallSpeed, // [speedx, speedy], in px/ms
+      ballSize: gameConfig.ballSize, /* height & width */
       ongoingGame: true, 
-      lengthPlayer: 100,  // length of stick of player in px
+      lengthPlayer: gameConfig.lengthPlayer,  // length of stick of player in px
       playersY: [props.borderLimits[1], props.borderLimits[1]], // only 2 players for normal case
-      playerIndex: 0, // player on this client
-      playerSpeed: 20 // px move per keypress
+      playerIndex: gameConfig.playerIndex, // player on this client
+      playerSpeed: gameConfig.playerSpeed, // px move per keypress
+      playerMvnt: 0 // 0->still, -11->up, 1->down
     }
 
-    this.handleKeyPress = this.handleKeyPress.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleKeyUp = this.handleKeyUp.bind(this);
 
     this.runPlay = this.runPlay.bind(this);
     this.handleBoundaries = this.handleBoundaries.bind(this);
@@ -66,12 +69,41 @@ class GameManager extends Component {
   componentDidMount() {
     this.runPlay();
 
-    window.addEventListener('keydown', this.handleKeyPress);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+    this.userKeyMovesLoop()
   }
 
 
   userKeyMovesLoop() {
-    
+    setInterval(() => {
+      this.setState((state, props) => {
+        if (state.playerMvnt === 0) return {};
+
+        let newY = state.playersY[state.playerIndex] + state.playerMvnt * state.playerSpeed;
+        if (state.playerMvnt === -1) { // up
+          newY = Math.max(newY, props.borderLimits[1]);
+        }
+        else if (state.playerMvnt === 1) { // down
+          newY = Math.min(newY, props.borderLimits[3] - state.lengthPlayer);
+        }
+
+        let newPlayersY = state.playersY;
+        newPlayersY[state.playerIndex] = newY;
+        return { playersY : newPlayersY };
+      })
+    }, 20);
+  }
+
+  handleKeyDown(e) {
+    this.setState(state => {
+      if (e.keyCode === 38) return { playerMvnt: -1 };
+      else if (e.keyCode === 40) return { playerMvnt: 1 };
+    });
+  }
+
+  handleKeyUp(e) {
+    this.setState({ playerMvnt: 0 });
   }
 
   
@@ -215,8 +247,10 @@ class PongInterface extends Component {
         </Layer>
 
         {/* Players + Ball Layer */}
-        <GameManager borderLimits={this.state.borderLimits} 
-          startBall={this.state.startBall} />
+        <GameManager 
+          borderLimits={this.state.borderLimits} 
+          gameConfig={this.props.gameConfig}
+          />
 
       </Stage>
     );

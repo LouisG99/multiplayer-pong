@@ -36,6 +36,10 @@ function GameManager(props) {
     socketGame.socket.on('invalid game code', handleInvalidGameCode);
 
     socketGame.joinGameRoom();
+
+    return () => { // componentWillUnmount() equivalent
+      socketGame.socket.close();
+    }
   }, [])
 
 

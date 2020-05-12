@@ -29,6 +29,22 @@ function App() {
           <Route path='/' exact component={Landing}/>
           <Route path='/matchmaker' exact component={Matchmaker}/>
           <Route path='/game' exact component={GameManager}/>
+
+
+          <Route path='/interf_test' exact component={() =>
+            <PongInterface
+              waitingForPlayer={false}
+              gameConfig={{
+                startBall: [300, 100],
+                initBallSpeed: [0, 0], 
+                lengthPlayer: 100, 
+                playerSpeed: 20, 
+                ballSize: 50, 
+                playerIndex: 1
+              }}
+              />}
+          />
+
           {/* <Route path='/game' exact component={PongInterface}/> */}
         </Switch>
       </HashRouter>
