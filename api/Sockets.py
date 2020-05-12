@@ -86,5 +86,7 @@ def handle_join_game_event():
 
 @socketio.on('player move')
 def handle_player_move(data):
+  game_id = session['game_id']
 
-  print('player moved')
+  emit('player move', data, room=game_id, include_self=False)
+  print('player moved, change broadcatsed')

@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, useState, useEffect } from 'react';
 import Konva from 'konva';
 import { Stage, Layer, Rect, Line } from 'react-konva';
 
@@ -43,217 +43,209 @@ function sendSocketUpdatePlayerPos(playerIndex, newY) { // [x, y]
 }
 
 
-/* rewrite as functional component eventually */
-class GameManager extends Component {
-  static timeoutPeriod = 10; // ms
-
-  constructor(props) {
-    super(props);
-    let gameConfig = props.gameConfig; // defined in gameconfig.py in backend
-
-    this.state = {
-      ballPosition: gameConfig.startBall, // [x, y]
-      ballSpeed: gameConfig.initBallSpeed, // [speedx, speedy], in px/ms
-      ballSize: gameConfig.ballSize, /* height & width */
-      ongoingGame: true, 
-      lengthPlayer: gameConfig.lengthPlayer,  // length of stick of player in px
-      playersY: [props.borderLimits[1], props.borderLimits[1]], // only 2 players for normal case
-      playerIndex: gameConfig.playerIndex, // player on this client
-      playerSpeed: gameConfig.playerSpeed, // px move per keypress
-      playerMvnt: 0 // 0->still, -11->up, 1->down
-    }
-
-    this.handleKeyDown = this.handleKeyDown.bind(this);
-    this.handleKeyUp = this.handleKeyUp.bind(this);
-
-    this.runPlay = this.runPlay.bind(this);
-    this.handleBoundaries = this.handleBoundaries.bind(this);
-    this.checkPlayerThere = this.checkPlayerThere.bind(this);
-    this.reboundBallXSide = this.reboundBallXSide.bind(this);
-    this.reboundBallYSide = this.reboundBallYSide.bind(this);
-    this.moveBall = this.moveBall.bind(this);
-
-    this.handleOtherPlayerUpdate = this.handleOtherPlayerUpdate.bind(this);
-  }
-
-  componentDidMount() {
-    this.runPlay();
-
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
-
-    socketGame.socket.on('player move', data => this.handleOtherPlayerUpdate(data));
-
-    this.userKeyMovesLoop()
-  }
-
-
-  userKeyMovesLoop() {
-    setInterval(() => {
-      this.setState((state, props) => {
-        if (state.playerMvnt === 0) return {};
-
-        let newY = state.playersY[state.playerIndex] + state.playerMvnt * state.playerSpeed;
-        if (state.playerMvnt === -1) { // up
-          newY = Math.max(newY, props.borderLimits[1]);
-        }
-        else if (state.playerMvnt === 1) { // down
-          newY = Math.min(newY, props.borderLimits[3] - state.lengthPlayer);
-        }
-
-        let newPlayersY = state.playersY;
-        newPlayersY[state.playerIndex] = newY;
-        sendSocketUpdatePlayerPos(state.playerIndex, newY);
-
-        return { playersY : newPlayersY };
-      })
-    }, 20);
-  }
-
-  handleKeyDown(e) {
-    this.setState(state => {
-      if (e.keyCode === 38) return { playerMvnt: -1 };
-      else if (e.keyCode === 40) return { playerMvnt: 1 };
-    });
-  }
-
-  handleKeyUp(e) {
-    this.setState({ playerMvnt: 0 });
-  }
-
-  handleOtherPlayerUpdate(update) {
-    this.setState(state => {
-      let newPlayersY = state.playersY;
-      newPlayersY[update.playerIndex] = update.newY;
-      return { playersY: newPlayersY };
-    })
-  }
-
-  runPlay() {
-    let ballMvmtTimer = setInterval(() => {
-      this.moveBall();
-    }, 
-    GameManager.timeoutPeriod)
-
-    this.ballMvmtTimer = ballMvmtTimer;
-  }
-
-  checkPlayerThere(x, topY) {
-    let bottomY = topY + this.state.ballSize;
-    let limitXLeft = this.props.borderLimits[0];
-
-    let state = this.state;
-    let playerTop = (x < limitXLeft) ? state.playersY[0] : state.playersY[1];
-
-    return (bottomY >= playerTop && topY <= playerTop + state.lengthPlayer);
+class BallState {
+  constructor(gameConfig) {
+    this.position = gameConfig.startBall;
+    this.speed = gameConfig.initBallSpeed;
+    this.size = gameConfig.ballSize;
   }
 
   reboundBallXSide() {
-    this.setState((state, props) => {
-      return { ballSpeed: [-state.ballSpeed[0], state.ballSpeed[1]] } 
-    });
+    this.speed = [-this.speed[0], this.speed[1]];
   }
-
   reboundBallYSide() {
-    this.setState((state, props) => {
-      return { ballSpeed: [state.ballSpeed[0], -state.ballSpeed[1]] }
-    });
+    this.speed = [this.speed[0], -this.speed[1]];
   }
+}
 
-  handleBoundaries(x, y) {
-    let inXBounds = isWithinXBoundaries(x, y, this.props.borderLimits, this.state.ballSize);
-    let inYBounds = isWithinYBoundaries(x, y, this.props.borderLimits, this.state.ballSize);
-    if (inXBounds && inYBounds) return;
+class Players {
+  constructor(gameConfig, numPlayersIn, borderLimitsIn) {
+    this.length = gameConfig.lengthPlayer;
+    this.speed = gameConfig.playerSpeed;
+    this.numPlayers = numPlayersIn;
+    this.borderLimits = borderLimitsIn;
+    this.clientMvnt = 0;
+    this.playerIndex = gameConfig.playerIndex; // index of client
 
-    if (!inXBounds && this.checkPlayerThere(x, y)) {
-      this.reboundBallXSide();
-    }
-    else if (inXBounds && !inYBounds) {
-      this.reboundBallYSide();
-    }
-    else if (this.ballMvmtTimer) {
-      clearInterval(this.ballMvmtTimer)
+    this.positions = [];
+    for (let i = 0; i < this.numPlayers; ++i) {
+      this.positions.push(borderLimitsIn[1]);
     }
   }
 
-  moveBall() {
-    this.setState(state => {
-      let newX = state.ballPosition[0] + state.ballSpeed[0] * GameManager.timeoutPeriod;
-      let newY = state.ballPosition[1] + state.ballSpeed[1] * GameManager.timeoutPeriod;
+  checkPlayerThere(x, topY, ballObj, limitXLeft) {
+    let bottomY = topY + ballObj.size;
+    let playerTop = (x < limitXLeft) ? this.positions[0] : this.positions[1];
 
-      this.handleBoundaries(newX, newY);
-      return { ballPosition: [newX, newY] };
-    })
-  }
-
-  render() {
-    return (
-      <Layer>
-         {/* Represent left and right players */}
-        <PlayerStick borderLimits={this.props.borderLimits}
-          y={this.state.playersY[0]} leftPlayer={true} 
-          lengthPlayer={this.state.lengthPlayer}
-          />
-
-        <PlayerStick borderLimits={this.props.borderLimits}
-          y={this.state.playersY[1]} leftPlayer={false} 
-          lengthPlayer={this.state.lengthPlayer}
-          />
-        
-
-        <Ball borderLimits={this.props.borderLimits} 
-          position={this.state.ballPosition}
-          size={this.state.ballSize} />
-      </Layer>
-    );
+    return (bottomY >= playerTop && topY <= playerTop + this.length);
   }
 }
 
 
-class PongInterface extends Component {
-  constructor(props) {
-    super(props);
+function GameManager(props) {
+  const timeoutPeriodBall = 10; // ms
+  const timeoutPeriodPlayer = 20; // ms
 
+  const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
+  const [players, setPlayers] = useState(new Players(props.gameConfig, 2, props.borderLimits));
+  const [gameOn, setGameOn] = useState(true);
+  const [ballMvmtTimer, setBallMvmtTimer] = useState(null);
+
+
+  function checkPlayerThere(x, topY) {
+    let bottomY = topY + ballObj.size;
+    let limitXLeft = props.borderLimits[0];
+
+    let playerTop = (x < limitXLeft) ? players.positions[0] : players.positions[1];
+
+    return (bottomY >= playerTop && topY <= playerTop + players.length);
+  }
+
+  function reboundBallXSide() {
+    setBallObj(oldBall => Object.assign({}, ballObj, { 
+      speed: [-oldBall.speed[0], oldBall.speed[1]]
+    }));
+  }
+
+  function handleBoundaries(x, y) {
+    let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size);
+    let inYBounds = isWithinYBoundaries(x, y, props.borderLimits, ballObj.size);
+    if (inXBounds && inYBounds) return;
+
+    // if (!inXBounds && players.checkPlayerThere(x, y, ballObj, props.borderLimits[0])) {
+    if (!inXBounds && checkPlayerThere(x, y)) {
+      // ballObj.reboundBallXSide();
+      reboundBallXSide();
+    }
+    else if (inXBounds && !inYBounds) {
+      ballObj.reboundBallYSide();
+    }
+    // else if (ballMvmtTimer) {
+    //   clearInterval(ballMvmtTimer)
+    // }
+  }
+
+  function moveBall() {
+    console.log(ballObj)
+    let newX = ballObj.position[0] + ballObj.speed[0] * timeoutPeriodBall;
+    let newY = ballObj.position[1] + ballObj.speed[1] * timeoutPeriodBall;
+
+    handleBoundaries(newX, newY);
+    setBallObj(Object.assign({}, ballObj, { position: [newX, newY] }));
+  }
+
+  function handleKeyDown(e) {
+    if (e.keyCode === 38) {
+      setPlayers(Object.assign({}, players, { clientMvnt: -1 }));
+    }
+    else if (e.keyCode === 40) {
+      setPlayers(Object.assign({}, players, { clientMvnt: 1 }));
+    }
+  }
+
+  function handleKeyUp(e) {
+    if (e.keyCode === 38 || e.keyCode === 40) {
+      setPlayers(Object.assign({}, players, { clientMvnt: 0 }));
+    }
+  }
+
+  function userKeyMovesLoop() {
+    if (players.clientMvnt === 0) return;
+
+    let newY = players.positions[players.playerIndex] + players.clientMvnt * players.speed;
+    if (players.clientMvnt === -1) { // up
+      newY = Math.max(newY, players.borderLimits[1]);
+    }
+    else if (players.clientMvnt === 1) { // down
+      newY = Math.min(newY, players.borderLimits[3] - players.length);
+    }
+
+    let newPositions = players.positions;
+    newPositions[players.playerIndex] = newY;
+    setPlayers(Object.assign({}, players, { positions: newPositions }))
+  }
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+  }, []);
+
+
+  useEffect(() => { // Loop for player movements
+    let interval = setInterval(userKeyMovesLoop, timeoutPeriodPlayer);
+    return (() => clearInterval(interval));
+  }, [players]);
+
+  useEffect(() => { // Loop for ball movement
+    let interval = setInterval(moveBall, timeoutPeriodBall);
+    return (() => clearInterval(interval));
+  }, [ballObj])
+
+  // function runPlay() {
+  //   let ballMvmtTimer = setInterval(() => {
+  //     moveBall(); // move to ball
+  //   }, 
+  //   timeoutPeriod);
+  //   setBallMvmtTimer(ballMvmtTimer);
+  // }
+
+
+  return (
+    <Layer>
+      {/* Represent left and right players */}
+      <PlayerStick 
+        borderLimits={props.borderLimits}
+        y={players.positions[0]} 
+        leftPlayer={true} 
+        lengthPlayer={players.length}
+        />
+
+      <PlayerStick 
+        borderLimits={props.borderLimits}
+        y={players.positions[1]} 
+        leftPlayer={false} 
+        lengthPlayer={players.length}
+        />
+      
+
+      <Ball 
+        borderLimits={props.borderLimits} 
+        position={ballObj.position}
+        size={ballObj.size} />
+    </Layer>
+  );
+}
+
+
+function PongInterface(props) {
+  function getInitBorderLimits() {
     let leftXLimit = 50, topYLimit = 0;
     let borderLimits = [
       leftXLimit, topYLimit, leftXLimit, heightOpposite(topYLimit),
       widthOpposite(leftXLimit), topYLimit, widthOpposite(leftXLimit), heightOpposite(topYLimit)
     ]; // topLeft, bottomLeft, topRight, bottomRight
-
-    let startBallX = (leftXLimit + widthOpposite(leftXLimit)) / 2;
-    let startBallY = (topYLimit + heightOpposite(topYLimit)) / 2;
-
-    this.state = { 
-      borderLimits: borderLimits, 
-      // startBall: [startBallX, startBallY]
-      startBall: [startBallX, 15]
-    };
+    return borderLimits;
   }
 
-  render() {
-    if (this.props.waitingForPlayers) 
-      return <h2>Waiting for players</h2>
-    
-    
-    return (
-      <Stage width={window.innerWidth} height={window.innerHeight}>
-        {/* order of layers is determined by order in which components are declared
-        i.e. component declared first will be the one further back */}
+  const [borderLimits, setBorderLimits] = useState(getInitBorderLimits());
+  
+  if (props.waitingForPlayers) return <h2>Waiting for players</h2>;
 
-        {/* Background Layer */}
-        <Layer> 
-          <BackgroundRect/>
-        </Layer>
+  return (
+    <Stage width={window.innerWidth} height={window.innerHeight}>
+      {/* Background Layer */}
+      <Layer> 
+        <BackgroundRect/>
+      </Layer>
 
-        {/* Players + Ball Layer */}
-        <GameManager 
-          borderLimits={this.state.borderLimits} 
-          gameConfig={this.props.gameConfig}
-          />
-
-      </Stage>
-    );
-  }
+      {/* Players + Ball Layer */}
+      <GameManager 
+        borderLimits={borderLimits} 
+        gameConfig={props.gameConfig}
+        />
+    </Stage>
+  );
 }
+
 
 export default PongInterface;
