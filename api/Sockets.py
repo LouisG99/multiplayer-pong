@@ -87,6 +87,14 @@ def handle_join_game_event():
 @socketio.on('player move')
 def handle_player_move(data):
   game_id = session['game_id']
-
   emit('player move', data, room=game_id, include_self=False)
-  print('player moved, change broadcatsed')
+
+
+@socketio.on('player rebound')
+def handle_player_rebound(data):
+  print(data)
+  game_id = session['game_id']
+  emit('player rebound', data, room=game_id, include_self=False)
+
+
+# 2bd29db0-2cc1-4a49-b89d-6e607dd8d846

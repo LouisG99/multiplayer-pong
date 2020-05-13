@@ -13,10 +13,17 @@ class SocketWrapper {
     this.socket = io.connect({ transport : ['websocket']});
   }
 
-  // joinGameRoom() {
-  //   console.log('joining room')
-  //   this.socket.emit('join game');
-  // }
+  updatePlayerMove(playerIndex, newY) { // [x, y]
+    this.socket.emit('player move', { 
+      playerIndex: playerIndex,  newY: newY 
+    });
+  }
+
+  updatePlayerRebound(newPosition, newBallSpeed) {
+    this.socket.emit('player rebound', { 
+      newBallPosition: newPosition, newBallSpeed: newBallSpeed 
+    });
+  }
 }
 
 

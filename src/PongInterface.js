@@ -6,11 +6,6 @@ import { BackgroundRect, Ball, PlayerStick } from './GameObjects';
 import { socketGame } from './SocketWrapper';
 
 
-function sendSocketUpdatePlayerPos(playerIndex, newY) { // [x, y]
-  socketGame.socket.emit('player move', 
-    { playerIndex: playerIndex,  newY: newY });
-}
-
 
 class BallState {
   constructor(gameConfig) {
@@ -46,12 +41,18 @@ function GameManager(props) {
   const [gameOn, setGameOn] = useState(true);
 
 
+  /**
+   * returns [bool1, bool2]
+   * bool1: where a player is there
+   * bool2: whether that player is the client
+   */ 
   function checkPlayerThere(x, topY) {
     let bottomY = topY + ballObj.size;
-    let limitXLeft = props.borderLimits[0];
+    let player = (x < props.borderLimits[0]) ? 0 : 1;
 
-    let playerTop = (x < limitXLeft) ? players.positions[0] : players.positions[1];
-    return (bottomY >= playerTop && topY <= playerTop + players.length);
+    let playerTop = players.positions[player];
+    let playerThere = (bottomY >= playerTop && topY <= playerTop + players.length);
+    return [playerThere, player === players.playerIndex];
   }
 
   function getReboundXSpeed() {
@@ -68,7 +69,15 @@ function GameManager(props) {
 
     if (inXBounds && inYBounds) return ballObj.speed;
 
-    if (!inXBounds && checkPlayerThere(x, y)) return getReboundXSpeed();
+    const [playerIsThere, sendReboundUpdate] = checkPlayerThere(x, y);
+    if (!inXBounds && playerIsThere) { // player rebound
+      let newSpeed = getReboundXSpeed();
+      if (sendReboundUpdate) {
+        socketGame.updatePlayerRebound([x, y], newSpeed);
+      }
+
+      return newSpeed;
+    }
     else if (inXBounds && !inYBounds) return getReboundYSpeed();
     else return [0, 0];
   }
@@ -108,16 +117,16 @@ function GameManager(props) {
 
     let newPositions = players.positions;
     newPositions[players.playerIndex] = newY;
-    setPlayers(Object.assign({}, players, { positions: newPositions }))
-    // sendSocketUpdatePlayerPos(state.playerIndex, newY);
+    setPlayers(Object.assign({}, players, { positions: newPositions }));
+    socketGame.updatePlayerMove(players.playerIndex, newY);
   }
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    // socketGame.socket.on('player move', data => this.handleOtherPlayerUpdate(data));
-    // socketGame.socket.on('ball touched', data => this.handleBallTouched(data));
+    socketGame.socket.on('player move', data => handleOtherPlayerUpdate(data));
+    socketGame.socket.on('player rebound', data => handlePlayerRebound(data));
   }, []);
 
 
@@ -133,18 +142,16 @@ function GameManager(props) {
   
 
   function handleOtherPlayerUpdate(update) {
-    this.setState(state => {
-      let newPlayersY = state.playersY;
-      newPlayersY[update.playerIndex] = update.newY;
-      return { playersY: newPlayersY };
-    })
+    let newPositions = players.positions;
+    newPositions[update.playerIndex] = update.newY;
+    setPlayers(Object.assign({}, players, { positions: newPositions }));
   }
 
-  function handleBallTouched(update) {
-    console.log('handle ball touched')
-    // this.setState(state => {
-
-    // })
+  function handlePlayerRebound(update) {
+    console.log('handle player rebound', update)
+    setBallObj(Object.assign({}, ballObj, {
+      speed: update.newBallSpeed, position: update.newBallPosition
+    }));
   }
 
 
@@ -181,6 +188,8 @@ function PongInterface(props) {
       leftXLimit, topYLimit, leftXLimit, 1.0-topYLimit,
       1.0-leftXLimit, topYLimit, 1.0-leftXLimit, 1.0-topYLimit
     ]; // topLeft, bottomLeft, topRight, bottomRight
+
+
     return borderLimits;
   }
 
