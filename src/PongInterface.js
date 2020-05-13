@@ -1,41 +1,10 @@
 import React, { Component, useState, useEffect } from 'react';
-import Konva from 'konva';
-import { Stage, Layer, Rect, Line } from 'react-konva';
+import { Stage, Layer } from 'react-konva';
 
-import { widthOpposite, heightOpposite, isWithinXBoundaries, isWithinYBoundaries } from './utility';
-import PlayerStick from './PlayerStick';
+import { isWithinXBoundaries, isWithinYBoundaries } from './utility';
+import { BackgroundRect, Ball, PlayerStick } from './GameObjects';
 import { socketGame } from './SocketWrapper';
 
-
-function BackgroundRect(props) {
-  let backgroundColor = "#94C9F0";
-  return <Rect x={0} y={0} width={window.innerWidth} height={window.innerHeight} 
-          fill={backgroundColor} />
-}
-
-class Ball extends Component {
-  /* x, y define where top left of object is */
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      backgroundColor: "#ffffff"
-    };
-  }
-
-  shouldComponentUpdate(nextProps) {
-    return nextProps.position !== this.props.position;
-  }
-
-  render() {
-    return (
-      <Rect x={this.props.position[0]} y={this.props.position[1]}
-        width={this.props.size} height={this.props.size} 
-        fill={this.state.backgroundColor}
-      />
-    )
-  }
-}
 
 function sendSocketUpdatePlayerPos(playerIndex, newY) { // [x, y]
   socketGame.socket.emit('player move', 
@@ -48,13 +17,6 @@ class BallState {
     this.position = gameConfig.startBall;
     this.speed = gameConfig.initBallSpeed;
     this.size = gameConfig.ballSize;
-  }
-
-  reboundBallXSide() {
-    this.speed = [-this.speed[0], this.speed[1]];
-  }
-  reboundBallYSide() {
-    this.speed = [this.speed[0], -this.speed[1]];
   }
 }
 
@@ -72,13 +34,6 @@ class Players {
       this.positions.push(borderLimitsIn[1]);
     }
   }
-
-  checkPlayerThere(x, topY, ballObj, limitXLeft) {
-    let bottomY = topY + ballObj.size;
-    let playerTop = (x < limitXLeft) ? this.positions[0] : this.positions[1];
-
-    return (bottomY >= playerTop && topY <= playerTop + this.length);
-  }
 }
 
 
@@ -93,8 +48,9 @@ function GameManager(props) {
 
   function checkPlayerThere(x, topY) {
     let bottomY = topY + ballObj.size;
-    let playerTop = players.positions[players.playerIndex];
+    let limitXLeft = props.borderLimits[0];
 
+    let playerTop = (x < limitXLeft) ? players.positions[0] : players.positions[1];
     return (bottomY >= playerTop && topY <= playerTop + players.length);
   }
 
@@ -112,9 +68,7 @@ function GameManager(props) {
 
     if (inXBounds && inYBounds) return ballObj.speed;
 
-    // ballObj.reboundBallXSide();
     if (!inXBounds && checkPlayerThere(x, y)) return getReboundXSpeed();
-    // ballObj.reboundBallYSide();
     else if (inXBounds && !inYBounds) return getReboundYSpeed();
     else return [0, 0];
   }
@@ -155,11 +109,15 @@ function GameManager(props) {
     let newPositions = players.positions;
     newPositions[players.playerIndex] = newY;
     setPlayers(Object.assign({}, players, { positions: newPositions }))
+    // sendSocketUpdatePlayerPos(state.playerIndex, newY);
   }
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    // socketGame.socket.on('player move', data => this.handleOtherPlayerUpdate(data));
+    // socketGame.socket.on('ball touched', data => this.handleBallTouched(data));
   }, []);
 
 
@@ -172,6 +130,22 @@ function GameManager(props) {
     let interval = setInterval(moveBall, timeoutPeriodBall);
     return (() => clearInterval(interval));
   }, [ballObj, players])
+  
+
+  function handleOtherPlayerUpdate(update) {
+    this.setState(state => {
+      let newPlayersY = state.playersY;
+      newPlayersY[update.playerIndex] = update.newY;
+      return { playersY: newPlayersY };
+    })
+  }
+
+  function handleBallTouched(update) {
+    console.log('handle ball touched')
+    // this.setState(state => {
+
+    // })
+  }
 
 
   return (
@@ -202,23 +176,29 @@ function GameManager(props) {
 
 function PongInterface(props) {
   function getInitBorderLimits() {
-    let leftXLimit = 50, topYLimit = 0;
+    let leftXLimit = 0.05, topYLimit = 0;
     let borderLimits = [
-      leftXLimit, topYLimit, leftXLimit, heightOpposite(topYLimit),
-      widthOpposite(leftXLimit), topYLimit, widthOpposite(leftXLimit), heightOpposite(topYLimit)
+      leftXLimit, topYLimit, leftXLimit, 1.0-topYLimit,
+      1.0-leftXLimit, topYLimit, 1.0-leftXLimit, 1.0-topYLimit
     ]; // topLeft, bottomLeft, topRight, bottomRight
     return borderLimits;
   }
 
   const [borderLimits, setBorderLimits] = useState(getInitBorderLimits());
+  const [rectDims, setRectDims] = useState([window.innerWidth, window.innerHeight])
+
+  useEffect(() => {
+    window.addEventListener('resize', () => setRectDims([window.innerWidth, window.innerHeight]) );
+  }, [])
   
+
   if (props.waitingForPlayers) return <h2>Waiting for players</h2>;
 
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
       {/* Background Layer */}
       <Layer> 
-        <BackgroundRect/>
+        <BackgroundRect width={rectDims[0]} height={rectDims[1]}/>
       </Layer>
 
       {/* Players + Ball Layer */}

@@ -13,6 +13,12 @@ function isWithinYBoundaries(x, y, borderLimits, size) {
   return (y >= borderLimits[1] && y + size <= borderLimits[3])
 }
 
+function getRelativeWidth(n) {
+  return n * window.innerWidth;
+}
+function getRelativeHeight(n) {
+  return n * window.innerHeight;
+}
 
 /* returns promise containing Raw Response */
 function sendPostRequest(url, body) {
@@ -42,5 +48,7 @@ export {
   isWithinXBoundaries,
   isWithinYBoundaries, 
   sendPostRequest, 
-  sendGetRequest
+  sendGetRequest, 
+  getRelativeWidth, 
+  getRelativeHeight
 };

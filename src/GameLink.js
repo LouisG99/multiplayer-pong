@@ -30,6 +30,7 @@ function GameCodeDisplay(props) {
   )
 }
 
+
 function GameCreator() {
   const [numPlayers, setNumPlayers] = useState(null);
   const [gameCode, setGameCode] = useState(null)
@@ -61,29 +62,5 @@ function GameCreator() {
     </div>
   )
 }
-
-
-// function JoinGame() {
-//   const [gameCode, setGameCode] = useState(null);
-
-//   function handleGameCodeChange(e) { setGameCode(String(e.target.value)) }
-
-//   function handleJoinGame() {
-//     if (!gameCode) {
-//       alert('Invalid game code');
-//       return;
-//     }
-
-//     console.log('handleJoinGame');
-//   }
-
-//   return (
-//     <div>
-//       <h2>Join a game by entering code below</h2>
-//       <input type="text" placeholder="Game code" onChange={handleGameCodeChange}/>
-//       <button type="submit" onClick={handleJoinGame}>Join Game</button>
-//     </div>
-//   )
-// }
 
 export { GameCreator };

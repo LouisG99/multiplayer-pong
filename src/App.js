@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Route, Switch, HashRouter, Link } from "react-router-dom";
-
+import { Route, Switch, HashRouter } from "react-router-dom";
 
 import logo from './logo.svg';
 import './App.css';
@@ -35,11 +34,11 @@ function App() {
             <PongInterface
               waitingForPlayer={false}
               gameConfig={{
-                startBall: [300, 100],
-                initBallSpeed: [-0.0, 1], 
-                lengthPlayer: 100, 
-                playerSpeed: 20, 
-                ballSize: 50, 
+                startBall: [0.5, 0.0],
+                initBallSpeed: [-0.0005, 0.0], 
+                lengthPlayer: 0.12, 
+                playerSpeed: 0.02, 
+                ballSize: 0.025, 
                 playerIndex: 0
               }}
               />}
