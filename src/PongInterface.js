@@ -89,49 +89,41 @@ function GameManager(props) {
   const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
   const [players, setPlayers] = useState(new Players(props.gameConfig, 2, props.borderLimits));
   const [gameOn, setGameOn] = useState(true);
-  const [ballMvmtTimer, setBallMvmtTimer] = useState(null);
 
 
   function checkPlayerThere(x, topY) {
     let bottomY = topY + ballObj.size;
-    let limitXLeft = props.borderLimits[0];
-
-    let playerTop = (x < limitXLeft) ? players.positions[0] : players.positions[1];
+    let playerTop = players.positions[players.playerIndex];
 
     return (bottomY >= playerTop && topY <= playerTop + players.length);
   }
 
-  function reboundBallXSide() {
-    setBallObj(oldBall => Object.assign({}, ballObj, { 
-      speed: [-oldBall.speed[0], oldBall.speed[1]]
-    }));
+  function getReboundXSpeed() {
+    return [-ballObj.speed[0], ballObj.speed[1]];
+  }
+  function getReboundYSpeed() {
+    return [ballObj.speed[0], -ballObj.speed[1]]
   }
 
-  function handleBoundaries(x, y) {
+
+  function updateSpeed(x, y) {
     let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size);
     let inYBounds = isWithinYBoundaries(x, y, props.borderLimits, ballObj.size);
-    if (inXBounds && inYBounds) return;
 
-    // if (!inXBounds && players.checkPlayerThere(x, y, ballObj, props.borderLimits[0])) {
-    if (!inXBounds && checkPlayerThere(x, y)) {
-      // ballObj.reboundBallXSide();
-      reboundBallXSide();
-    }
-    else if (inXBounds && !inYBounds) {
-      ballObj.reboundBallYSide();
-    }
-    // else if (ballMvmtTimer) {
-    //   clearInterval(ballMvmtTimer)
-    // }
+    if (inXBounds && inYBounds) return ballObj.speed;
+
+    // ballObj.reboundBallXSide();
+    if (!inXBounds && checkPlayerThere(x, y)) return getReboundXSpeed();
+    // ballObj.reboundBallYSide();
+    else if (inXBounds && !inYBounds) return getReboundYSpeed();
+    else return [0, 0];
   }
 
   function moveBall() {
-    console.log(ballObj)
-    let newX = ballObj.position[0] + ballObj.speed[0] * timeoutPeriodBall;
-    let newY = ballObj.position[1] + ballObj.speed[1] * timeoutPeriodBall;
+    let x = ballObj.position[0] + ballObj.speed[0] * timeoutPeriodBall;
+    let y = ballObj.position[1] + ballObj.speed[1] * timeoutPeriodBall;
 
-    handleBoundaries(newX, newY);
-    setBallObj(Object.assign({}, ballObj, { position: [newX, newY] }));
+    setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
   }
 
   function handleKeyDown(e) {
@@ -179,15 +171,7 @@ function GameManager(props) {
   useEffect(() => { // Loop for ball movement
     let interval = setInterval(moveBall, timeoutPeriodBall);
     return (() => clearInterval(interval));
-  }, [ballObj])
-
-  // function runPlay() {
-  //   let ballMvmtTimer = setInterval(() => {
-  //     moveBall(); // move to ball
-  //   }, 
-  //   timeoutPeriod);
-  //   setBallMvmtTimer(ballMvmtTimer);
-  // }
+  }, [ballObj, players])
 
 
   return (
@@ -207,7 +191,6 @@ function GameManager(props) {
         lengthPlayer={players.length}
         />
       
-
       <Ball 
         borderLimits={props.borderLimits} 
         position={ballObj.position}
