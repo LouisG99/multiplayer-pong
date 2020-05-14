@@ -103,6 +103,49 @@ def handle_player_rebound(data):
   emit('player rebound', data, room=game_id, include_self=False)
 
 
+# if game done -> return ActivePlayer object of winner
+# else -> return None
+def get_game_winner(query_shell, game_id):
+  players = query_shell.all()
+  maxPlayer = query_shell[0]
+
+  for player in players:
+    if player.score > maxPlayer.score:
+      maxPlayer = player
+
+  pointLimit = psql_session.query(ActiveGames).\
+               filter_by(id=game_id).one().pointLimit
+
+  return maxPlayer if (pointLimit == maxPlayer.score) else None
+
+
+# clean up ActiveGames and ActivePlayers
+def handle_end_game(game_id, maxActivePlayer):
+  winnerUser = maxActivePlayer.user
+
+  psql_session.query(ActivePlayers).filter_by(game_id=game_id).delete()
+  psql_session.query(ActiveGames).filter_by(id=game_id).delete()
+  psql_session.commit()
+
+  emit('game end', { 'winner': winnerUser.username }, room=game_id)
+
+
+#update scores of other players (player wins a point everytime another misses)
+# return true if game continues, false if game is done (max score reached)
+def update_player_scores(game_id, user_id):
+  query_shell = psql_session.query(ActivePlayers).\
+    filter(ActivePlayers.game_id == game_id).\
+    filter(ActivePlayers.user_id != user_id)
+  query_shell.update({ 'score': ActivePlayers.score + 1 })
+
+  maxActivePlayer = get_game_winner(query_shell, game_id)
+  if maxActivePlayer is not None: # game done
+    handle_end_game(game_id, maxActivePlayer)
+
+  psql_session.commit()
+  return maxActivePlayer is None
+
+
 @socketio.on('player lost point')
 def handle_player_lost_point():
   print('player lost point', session)
@@ -110,12 +153,7 @@ def handle_player_lost_point():
   game_id = session['game_id']
   user_id = session['user_id']
 
-  #update scores of other players (player wins a point everytime another misses)
-  psql_session.query(ActivePlayers).\
-    filter(ActivePlayers.game_id == game_id).\
-    filter(ActivePlayers.user_id != user_id).\
-    update({ 'score': ActivePlayers.score + 1 })
-  
-  psql_session.commit()
+  if update_player_scores(game_id, user_id): # game goes on
+    wait_and_game_on(game_id)
 
-  wait_and_game_on(game_id)
+# 779b51a3-364a-4340-ba30-dda4033baa16

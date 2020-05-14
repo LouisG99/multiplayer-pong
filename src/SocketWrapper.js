@@ -7,10 +7,21 @@ const ENDPOINT = "http://localhost:3000"; // server route --> TODO: change for p
 class SocketWrapper {
   constructor(namespace) {
     this.namespace = namespace;
+    this.connected = false;
   }
 
   connect() {
-    this.socket = io.connect({ transport : ['websocket']});
+    if (!this.connected) {
+      this.socket = io.connect({ transport : ['websocket']});
+      this.connected = true;
+    }
+  }
+  
+  disconnect() {
+    if (this.connected) {
+      this.socket.close();
+      this.connected = false;
+    }
   }
 
   updatePlayerMove(playerIndex, newY) { // [x, y]

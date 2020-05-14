@@ -10,9 +10,10 @@ function GameManager(props) {
   const [waitingForPlayers, setWaitingForPlayers] = useState(true);
   const [gameConfig, setGameConfig] = useState({});
   const [redirectHome, setRedirectHome] = useState(false);
+  const [gameResults, setGameResults] = useState(null);
 
   function handleAllPlayersReady() {
-    alert('Players Ready');
+    console.log('all players ready');
     setWaitingForPlayers(false);
   }
 
@@ -25,6 +26,11 @@ function GameManager(props) {
   function handleInvalidGameCode() {
     alert("Game code was invalid, you'll be redirected");
     setRedirectHome(true);
+  }
+
+  function handleGameEnd(results) {
+    socketGame.disconnect();
+    setGameResults({ winner: results.winner });
   }
 
   async function verifyGameId() {
@@ -43,6 +49,7 @@ function GameManager(props) {
     socketGame.socket.on('all players ready', handleAllPlayersReady);
     socketGame.socket.on('game config', data => handleGameConfig(data));
     socketGame.socket.on('invalid game code', handleInvalidGameCode);
+    socketGame.socket.on('game end', data => handleGameEnd(data));
 
     socketGame.socket.emit('join game'); // game_id stored in session
   }
@@ -56,12 +63,16 @@ function GameManager(props) {
     })
       
     return () => { // componentWillUnmount() equivalent
-      if (socketGame.socket) socketGame.socket.close();
+      if (socketGame.socket) socketGame.disconnect();
     }
   }, [])
 
 
   if (redirectHome) return <Redirect to='/'/>
+  
+  if (gameResults) {
+    return <h2>Winner is {gameResults.winner}</h2>
+  }
 
   return (
     <div>
