@@ -38,13 +38,13 @@ function GameManager(props) {
 
   const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
   const [players, setPlayers] = useState(new Players(props.gameConfig, 2, props.borderLimits));
-  const [gameOn, setGameOn] = useState(true);
+  const [gameOn, setGameOn] = useState(false);
 
 
   /**
    * returns [bool1, bool2]
    * bool1: where a player is there
-   * bool2: whether that player is the client
+   * bool2: whether the boundary is that of the client
    */ 
   function checkPlayerThere(x, topY) {
     let bottomY = topY + ballObj.size;
@@ -62,6 +62,12 @@ function GameManager(props) {
     return [ballObj.speed[0], -ballObj.speed[1]]
   }
 
+  function handleEndPoint(clientBoundary) {
+    if (clientBoundary) {
+      socketGame.updatePlayerLostPoint();
+    }
+    setGameOn(false);
+  }
 
   function updateSpeed(x, y) {
     let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size);
@@ -69,33 +75,30 @@ function GameManager(props) {
 
     if (inXBounds && inYBounds) return ballObj.speed;
 
-    const [playerIsThere, sendReboundUpdate] = checkPlayerThere(x, y);
+    const [playerIsThere, clientBoundary] = checkPlayerThere(x, y);
     if (!inXBounds && playerIsThere) { // player rebound
       let newSpeed = getReboundXSpeed();
-      if (sendReboundUpdate) {
-        socketGame.updatePlayerRebound([x, y], newSpeed);
-      }
-
+      if (clientBoundary) socketGame.updatePlayerRebound([x, y], newSpeed);
       return newSpeed;
     }
-    else if (inXBounds && !inYBounds) return getReboundYSpeed();
-    else return [0, 0];
+    else if (inXBounds && !inYBounds) {
+      return getReboundYSpeed();
+    }
+    else {
+      handleEndPoint(clientBoundary);
+      return [0, 0];
+    }
   }
 
   function moveBall() {
     let x = ballObj.position[0] + ballObj.speed[0] * timeoutPeriodBall;
     let y = ballObj.position[1] + ballObj.speed[1] * timeoutPeriodBall;
-
     setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
   }
 
   function handleKeyDown(e) {
-    if (e.keyCode === 38) {
-      setPlayers(Object.assign({}, players, { clientMvnt: -1 }));
-    }
-    else if (e.keyCode === 40) {
-      setPlayers(Object.assign({}, players, { clientMvnt: 1 }));
-    }
+    if (e.keyCode === 38) setPlayers(Object.assign({}, players, { clientMvnt: -1 }));
+    else if (e.keyCode === 40) setPlayers(Object.assign({}, players, { clientMvnt: 1 }));
   }
 
   function handleKeyUp(e) {
@@ -127,6 +130,7 @@ function GameManager(props) {
 
     socketGame.socket.on('player move', data => handleOtherPlayerUpdate(data));
     socketGame.socket.on('player rebound', data => handlePlayerRebound(data));
+    socketGame.socket.on('game on', handleGameOn);
   }, []);
 
 
@@ -136,9 +140,11 @@ function GameManager(props) {
   }, [players]);
 
   useEffect(() => { // Loop for ball movement
-    let interval = setInterval(moveBall, timeoutPeriodBall);
-    return (() => clearInterval(interval));
-  }, [ballObj, players])
+    if (gameOn) {
+      let interval = setInterval(moveBall, timeoutPeriodBall);
+      return (() => clearInterval(interval));
+    }
+  }, [ballObj, players, gameOn])
   
 
   function handleOtherPlayerUpdate(update) {
@@ -148,10 +154,16 @@ function GameManager(props) {
   }
 
   function handlePlayerRebound(update) {
-    console.log('handle player rebound', update)
     setBallObj(Object.assign({}, ballObj, {
       speed: update.newBallSpeed, position: update.newBallPosition
     }));
+  }
+
+  function handleGameOn() {
+    setBallObj(Object.assign({}, ballObj, {
+      position: props.gameConfig.startBall, speed: props.gameConfig.initBallSpeed
+    }));
+    setGameOn(true);
   }
 
 
@@ -188,7 +200,6 @@ function PongInterface(props) {
       leftXLimit, topYLimit, leftXLimit, 1.0-topYLimit,
       1.0-leftXLimit, topYLimit, 1.0-leftXLimit, 1.0-topYLimit
     ]; // topLeft, bottomLeft, topRight, bottomRight
-
 
     return borderLimits;
   }

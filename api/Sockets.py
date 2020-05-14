@@ -38,7 +38,7 @@ def emit_private(event, data):
 def get_player_index(user_id, game_id):
   user_player_query = ActivePlayers.query.filter_by(user_id=user_id, game_id=game_id).first()
   if user_player_query is not None:
-    return user_player_query.playerIndex, user_player_query
+    return user_player_query.index, user_player_query
 
   new_index = ActivePlayers.query.filter_by(game_id=game_id).count()
   return new_index, None
@@ -51,26 +51,32 @@ def add_as_active_player(game_id):
   playerIndex, newPlayer = get_player_index(user_id, game_id)
   
   if newPlayer is None:
-    newPlayer = ActivePlayers(user_id=user_id, game_id=game_id, playerIndex=playerIndex)
+    newPlayer = ActivePlayers(user_id=user_id, game_id=game_id, index=playerIndex)
     psql_session.add(newPlayer)
     psql_session.commit()
   
   return playerIndex
 
 
+def wait_and_game_on(game_id):
+  from gameconfig import pointTimeoutPeriod
+  time.sleep(pointTimeoutPeriod)
+  emit('game on', room=game_id)
+  print('game on')
+
+
 def all_players_ready_alert(game_id):
   emit('all players ready', room=game_id)
-
+  wait_and_game_on(game_id)
+  
 
 # asummes game_id valid as API is called before hand (/api/verify_game_id)
 # and stored in session obj
 @socketio.on('join game')
 def handle_join_game_event():
   game_id = session['game_id']
-  try:
-    game_query = ActiveGames.query.filter_by(id=game_id).first()
-  except:
-    game_query = None
+    
+  game_query = ActiveGames.query.filter_by(id=game_id).one_or_none()
 
   join_room(game_id)
   print('JOINED ROOM')
@@ -97,4 +103,19 @@ def handle_player_rebound(data):
   emit('player rebound', data, room=game_id, include_self=False)
 
 
-# 2bd29db0-2cc1-4a49-b89d-6e607dd8d846
+@socketio.on('player lost point')
+def handle_player_lost_point():
+  print('player lost point', session)
+
+  game_id = session['game_id']
+  user_id = session['user_id']
+
+  #update scores of other players (player wins a point everytime another misses)
+  psql_session.query(ActivePlayers).\
+    filter(ActivePlayers.game_id == game_id).\
+    filter(ActivePlayers.user_id != user_id).\
+    update({ 'score': ActivePlayers.score + 1 })
+  
+  psql_session.commit()
+
+  wait_and_game_on(game_id)

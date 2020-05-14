@@ -24,6 +24,10 @@ class SocketWrapper {
       newBallPosition: newPosition, newBallSpeed: newBallSpeed 
     });
   }
+
+  updatePlayerLostPoint() {
+    this.socket.emit('player lost point');
+  }
 }
 
 
