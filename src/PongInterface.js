@@ -21,16 +21,23 @@ class Players {
     this.speed = gameConfig.playerSpeed;
     this.numPlayers = numPlayersIn;
     this.borderLimits = borderLimitsIn;
-    this.clientMvnt = 0;
     this.playerIndex = gameConfig.playerIndex; // index of client
 
     this.positions = [];
-    for (let i = 0; i < this.numPlayers; ++i) {
+    for (let i = 0; i < this.numPlayers; ++i)
       this.positions.push(borderLimitsIn[1]);
-    }
+
+    this.mvnts = []; // 1, -1, or 0 for all players
+    for (let i = 0; i < this.numPlayers; ++i)
+      this.mvnts.push(0);
   }
 }
 
+function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
+  let x = prev_position[0] + speed[0] * (curr_ts - last_ts); // diff is in ms
+  let y = prev_position[1] + speed[1] * (curr_ts - last_ts);
+  return [x, y];
+}
 
 function GameManager(props) {
   const timeoutPeriodBall = 10; // ms
@@ -90,38 +97,78 @@ function GameManager(props) {
     }
   }
 
-  function moveBall() {
-    let x = ballObj.position[0] + ballObj.speed[0] * timeoutPeriodBall;
-    let y = ballObj.position[1] + ballObj.speed[1] * timeoutPeriodBall;
-    setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
+  function moveBallClosure() {
+    let last_ts = Date.now();
+
+    function moveBall() {
+      let curr_ts = Date.now();
+      let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, last_ts);
+      setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
+      last_ts = curr_ts;
+    }
+
+    return moveBall;
+  }
+
+  function modifIndexOfArr(arr, index, val) {
+    arr[index] = val;
+    return arr;
   }
 
   function handleKeyDown(e) {
-    if (e.keyCode === 38) setPlayers(Object.assign({}, players, { clientMvnt: -1 }));
-    else if (e.keyCode === 40) setPlayers(Object.assign({}, players, { clientMvnt: 1 }));
+    if (e.keyCode !== 38 && e.keyCode !== 40) return;
+
+    let currMvnt = players.mvnts[players.playerIndex];
+    if (e.keyCode === 38 && currMvnt === -1) return;
+    else if (e.keyCode === 40 && currMvnt === 1) return;
+
+    console.log('key down')
+    let newMvnt = (e.keyCode === 38) ? -1 : 1;
+    let curr_pos = players.positions[players.playerIndex];
+
+    socketGame.updatePlayerMove(players.playerIndex, curr_pos, newMvnt);
+    setPlayers(Object.assign({}, players, { 
+      mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
+    }));
   }
 
   function handleKeyUp(e) {
     if (e.keyCode === 38 || e.keyCode === 40) {
-      setPlayers(Object.assign({}, players, { clientMvnt: 0 }));
+      console.log('key off')
+      let curr_pos = players.positions[players.playerIndex];
+      socketGame.updatePlayerMove(players.playerIndex, curr_pos, 0);
+
+      setPlayers(Object.assign({}, players, { 
+        mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, 0) 
+      }));
     }
   }
 
-  function userKeyMovesLoop() {
-    if (players.clientMvnt === 0) return;
-
-    let newY = players.positions[players.playerIndex] + players.clientMvnt * players.speed;
-    if (players.clientMvnt === -1) { // up
+  function helperPlayerMoves(index) {
+    let newY = players.positions[index] + players.mvnts[index] * players.speed;
+    if (players.mvnts[index] === -1) { // up
       newY = Math.max(newY, players.borderLimits[1]);
     }
-    else if (players.clientMvnt === 1) { // down
+    else if (players.mvnts[index] === 1) { // down
       newY = Math.min(newY, players.borderLimits[3] - players.length);
     }
+    return newY;
+  }
 
+  function userKeyMovesLoop() {
     let newPositions = players.positions;
-    newPositions[players.playerIndex] = newY;
-    setPlayers(Object.assign({}, players, { positions: newPositions }));
-    socketGame.updatePlayerMove(players.playerIndex, newY);
+    let modified = false;
+
+    for (let i = 0; i < players.numPlayers; ++i) {
+      if (players.mvnts[i] !== 0) {
+        newPositions[i] = helperPlayerMoves(i);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      setPlayers(Object.assign({}, players, { positions: newPositions }));
+    }    
   }
 
   useEffect(() => {
@@ -141,21 +188,28 @@ function GameManager(props) {
 
   useEffect(() => { // Loop for ball movement
     if (gameOn) {
-      let interval = setInterval(moveBall, timeoutPeriodBall);
+      let moveBall = moveBallClosure();
+      let interval = setInterval(() => moveBall(), timeoutPeriodBall);
       return (() => clearInterval(interval));
     }
   }, [ballObj, players, gameOn])
   
 
   function handleOtherPlayerUpdate(update) {
-    let newPositions = players.positions;
-    newPositions[update.playerIndex] = update.newY;
-    setPlayers(Object.assign({}, players, { positions: newPositions }));
+    let newPositions = modifIndexOfArr(players.positions, update.playerIndex, update.newY);
+    let newMvnts = modifIndexOfArr(players.mvnts, update.playerIndex, update.mvnt);
+    setPlayers(Object.assign({}, players, { 
+      positions: newPositions, mvnts: newMvnts
+    }));
   }
 
   function handlePlayerRebound(update) {
+    let rebound_pos = update.newBallPosition;
+    let newSpeed = update.newBallSpeed;
+    let newPosition = getUpdatedBallCoords(rebound_pos, newSpeed, Date.now(), update.ts);
+    
     setBallObj(Object.assign({}, ballObj, {
-      speed: update.newBallSpeed, position: update.newBallPosition
+      speed: newSpeed, position: newPosition
     }));
   }
 
@@ -166,7 +220,7 @@ function GameManager(props) {
     setGameOn(true);
   }
 
-
+  
   return (
     <Layer>
       {/* Represent left and right players */}

@@ -24,15 +24,16 @@ class SocketWrapper {
     }
   }
 
-  updatePlayerMove(playerIndex, newY) { // [x, y]
+  updatePlayerMove(playerIndex, newY, mvnt) { // [x, y]
     this.socket.emit('player move', { 
-      playerIndex: playerIndex,  newY: newY 
+      playerIndex: playerIndex, newY: newY, mvnt: mvnt
     });
   }
 
   updatePlayerRebound(newPosition, newBallSpeed) {
+    let update_ts = Date.now(); // independent of timezones
     this.socket.emit('player rebound', { 
-      newBallPosition: newPosition, newBallSpeed: newBallSpeed 
+      newBallPosition: newPosition, newBallSpeed: newBallSpeed, ts: update_ts
     });
   }
 
