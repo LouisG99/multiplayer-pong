@@ -155,23 +155,22 @@ function GameManager(props) {
 
   function userKeyMovesLoopClosure() {
     let last_ts = Date.now();
-    
+
     function userKeyMovesLoop() {
       let curr_ts = Date.now();
-      let newPositions = players.positions; // this is problematic (will mutate state directly)
+      let p_cp = Object.assign({}, players);
       let modified = false;
-  
-      for (let i = 0; i < players.numPlayers; ++i) {
-        if (players.mvnts[i] !== 0) {
-          let prev = newPositions[i];
-          newPositions[i] = helperPlayerMoves(i, curr_ts - last_ts);
-          if (newPositions[i] !== prev) modified = true;
+
+      for (let i = 0; i < p_cp.numPlayers; ++i) {
+        if (p_cp.mvnts[i] !== 0) {
+          let prev = p_cp.positions[i];
+          p_cp.positions[i] = helperPlayerMoves(i, curr_ts - last_ts);
+          if (p_cp.positions[i] !== prev) modified = true;
         }
       }
-  
-      if (modified) {
-        setPlayers(Object.assign({}, players, { positions: newPositions }));
-      }    
+
+      if (modified) setPlayers(Object.assign(p_cp, players));
+      
       last_ts = curr_ts;
     }
 
@@ -195,9 +194,7 @@ function GameManager(props) {
     return (() => clearInterval(interval));
   }, [players]);
 
-  useEffect(() => {
-    setLastBallTs(gameOn ? Date.now() : null);
-  }, [gameOn])
+  useEffect(() => setLastBallTs(gameOn ? Date.now() : null), [gameOn])
 
   useEffect(() => { // Loop for ball movement
     if (gameOn) {
