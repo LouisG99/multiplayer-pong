@@ -5,8 +5,6 @@ import { isWithinXBoundaries, isWithinYBoundaries } from './utility';
 import { BackgroundRect, Ball, PlayerStick } from './GameObjects';
 import { socketGame } from './SocketWrapper';
 
-
-
 class BallState {
   constructor(gameConfig) {
     this.position = gameConfig.startBall;
@@ -33,11 +31,13 @@ class Players {
   }
 }
 
+
 function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
   let x = prev_position[0] + speed[0] * (curr_ts - last_ts); // diff is in ms
   let y = prev_position[1] + speed[1] * (curr_ts - last_ts);
   return [x, y];
 }
+
 
 function GameManager(props) {
   const timeoutPeriodBall = 10; // ms
@@ -46,6 +46,7 @@ function GameManager(props) {
   const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
   const [players, setPlayers] = useState(new Players(props.gameConfig, 2, props.borderLimits));
   const [gameOn, setGameOn] = useState(false);
+  const [lastBallTs, setLastBallTs] = useState(null);
 
 
   /**
@@ -97,18 +98,16 @@ function GameManager(props) {
     }
   }
 
-  function moveBallClosure() {
-    let last_ts = Date.now();
-
-    function moveBall() {
-      let curr_ts = Date.now();
-      let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, last_ts);
-      last_ts = curr_ts;
+  
+  function moveBall() {
+    let curr_ts = Date.now();
+    if (lastBallTs) {
+      let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, lastBallTs);
       setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
     }
-
-    return moveBall;
+    setLastBallTs(curr_ts);
   }
+
 
   function modifIndexOfArr(arr, index, val) {
     let arr_copy = arr.slice(0);
@@ -127,7 +126,6 @@ function GameManager(props) {
     let curr_pos = players.positions[players.playerIndex];
 
     socketGame.updatePlayerMove(players.playerIndex, curr_pos, newMvnt);
-    // modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     setPlayers(Object.assign({}, players, { 
       mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     }));
@@ -137,7 +135,6 @@ function GameManager(props) {
     if (e.keyCode === 38 || e.keyCode === 40) {
       let curr_pos = players.positions[players.playerIndex];
       socketGame.updatePlayerMove(players.playerIndex, curr_pos, 0);
-      // modifIndexOfArr(players.mvnts, players.playerIndex, 0)
       
       setPlayers(Object.assign({}, players, { 
         mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, 0) 
@@ -173,7 +170,6 @@ function GameManager(props) {
       }
   
       if (modified) {
-        console.log('modif')
         setPlayers(Object.assign({}, players, { positions: newPositions }));
       }    
       last_ts = curr_ts;
@@ -199,13 +195,17 @@ function GameManager(props) {
     return (() => clearInterval(interval));
   }, [players]);
 
+  useEffect(() => {
+    setLastBallTs(gameOn ? Date.now() : null);
+  }, [gameOn])
+
   useEffect(() => { // Loop for ball movement
     if (gameOn) {
-      let moveBall = moveBallClosure();
-      let timeout = setTimeout(() => moveBall(), timeoutPeriodBall);
+      let timeout = setTimeout(moveBall, timeoutPeriodBall);
       return (() => clearTimeout(timeout));
     }
-  }, [ballObj, players, gameOn])
+  }, [ballObj, players, gameOn, lastBallTs])
+
   
 
   function handleOtherPlayerUpdate(update) {

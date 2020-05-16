@@ -76,7 +76,7 @@ function GameManager(props) {
 
   return (
     <div>
-      <h2>Game Manager {socketGame.gameCode}</h2>
+      {/* <h2>Game Manager {socketGame.gameCode}</h2> */}
       <PongInterface 
         waitingForPlayers={waitingForPlayers}
         gameConfig={gameConfig}
