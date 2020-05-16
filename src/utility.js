@@ -5,12 +5,16 @@ function heightOpposite(y) {
   return window.innerHeight - y;
 }
 
-function isWithinXBoundaries(x, y, borderLimits, size) {
-  return (x >= borderLimits[0] && x + size <= borderLimits[4]);
+function isWithinXBoundaries(x, y, borderLimits, size, speed) {
+  if (x < borderLimits[0]) return speed[0] >= 0; // if already changed course, count as within
+  if (x + size > borderLimits[4]) return speed[0] <= 0;
+  return true;
 }
 
-function isWithinYBoundaries(x, y, borderLimits, size) {
-  return (y >= borderLimits[1] && y + size <= borderLimits[3])
+function isWithinYBoundaries(x, y, borderLimits, size, speed) {
+  if (y < borderLimits[1]) return speed[1] >= 0;
+  else if (y + size > borderLimits[3]) return speed[1] <= 0;
+  return true;
 }
 
 function getRelativeWidth(n) {

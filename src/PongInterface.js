@@ -77,8 +77,8 @@ function GameManager(props) {
   }
 
   function updateSpeed(x, y) {
-    let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size);
-    let inYBounds = isWithinYBoundaries(x, y, props.borderLimits, ballObj.size);
+    let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size, ballObj.speed);
+    let inYBounds = isWithinYBoundaries(x, y, props.borderLimits, ballObj.size, ballObj.speed);
 
     if (inXBounds && inYBounds) return ballObj.speed;
 
@@ -111,8 +111,9 @@ function GameManager(props) {
   }
 
   function modifIndexOfArr(arr, index, val) {
-    arr[index] = val;
-    return arr;
+    let arr_copy = arr.slice(0);
+    arr_copy[index] = val;
+    return arr_copy;
   }
 
   function handleKeyDown(e) {
@@ -122,11 +123,11 @@ function GameManager(props) {
     if (e.keyCode === 38 && currMvnt === -1) return;
     else if (e.keyCode === 40 && currMvnt === 1) return;
 
-    console.log('key down')
     let newMvnt = (e.keyCode === 38) ? -1 : 1;
     let curr_pos = players.positions[players.playerIndex];
 
     socketGame.updatePlayerMove(players.playerIndex, curr_pos, newMvnt);
+    // modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     setPlayers(Object.assign({}, players, { 
       mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     }));
@@ -134,10 +135,10 @@ function GameManager(props) {
 
   function handleKeyUp(e) {
     if (e.keyCode === 38 || e.keyCode === 40) {
-      console.log('key off')
       let curr_pos = players.positions[players.playerIndex];
       socketGame.updatePlayerMove(players.playerIndex, curr_pos, 0);
-
+      // modifIndexOfArr(players.mvnts, players.playerIndex, 0)
+      
       setPlayers(Object.assign({}, players, { 
         mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, 0) 
       }));
@@ -156,17 +157,19 @@ function GameManager(props) {
   }
 
   function userKeyMovesLoop() {
-    let newPositions = players.positions;
+    let newPositions = players.positions.slice(0);
     let modified = false;
 
     for (let i = 0; i < players.numPlayers; ++i) {
       if (players.mvnts[i] !== 0) {
+        let prev = newPositions[i];
         newPositions[i] = helperPlayerMoves(i);
-        modified = true;
+        if (newPositions[i] !== prev) modified = true;
       }
     }
 
     if (modified) {
+      console.log('modif')
       setPlayers(Object.assign({}, players, { positions: newPositions }));
     }    
   }
@@ -189,8 +192,8 @@ function GameManager(props) {
   useEffect(() => { // Loop for ball movement
     if (gameOn) {
       let moveBall = moveBallClosure();
-      let interval = setInterval(() => moveBall(), timeoutPeriodBall);
-      return (() => clearInterval(interval));
+      let timeout = setTimeout(() => moveBall(), timeoutPeriodBall);
+      return (() => clearTimeout(timeout));
     }
   }, [ballObj, players, gameOn])
   

@@ -107,7 +107,7 @@ def handle_player_rebound(data):
 # else -> return None
 def get_game_winner(query_shell, game_id):
   players = query_shell.all()
-  maxPlayer = query_shell[0]
+  maxPlayer = players[0]
 
   for player in players:
     if player.score > maxPlayer.score:
@@ -156,4 +156,4 @@ def handle_player_lost_point():
   if update_player_scores(game_id, user_id): # game goes on
     wait_and_game_on(game_id)
 
-# cacaab38-ab5d-44dd-8ced-a4c26d49a0a6
+# 103c1c06-cf8c-42a8-aca7-4d4361b142ea
