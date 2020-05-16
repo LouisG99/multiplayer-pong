@@ -5,7 +5,7 @@ config = {
   'startBall': [0.5, 0.1],
   'initBallSpeed': [-0.0005, 0.0], 
   'lengthPlayer': 0.12, 
-  'playerSpeed': 0.02, 
+  'playerSpeed': 0.001, 
   'ballSize': 0.025
 }
 

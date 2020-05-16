@@ -103,8 +103,8 @@ function GameManager(props) {
     function moveBall() {
       let curr_ts = Date.now();
       let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, last_ts);
-      setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
       last_ts = curr_ts;
+      setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
     }
 
     return moveBall;
@@ -145,8 +145,8 @@ function GameManager(props) {
     }
   }
 
-  function helperPlayerMoves(index) {
-    let newY = players.positions[index] + players.mvnts[index] * players.speed;
+  function helperPlayerMoves(index, ms_elapsed) {
+    let newY = players.positions[index] + players.mvnts[index] * players.speed * ms_elapsed;
     if (players.mvnts[index] === -1) { // up
       newY = Math.max(newY, players.borderLimits[1]);
     }
@@ -156,23 +156,32 @@ function GameManager(props) {
     return newY;
   }
 
-  function userKeyMovesLoop() {
-    let newPositions = players.positions.slice(0);
-    let modified = false;
-
-    for (let i = 0; i < players.numPlayers; ++i) {
-      if (players.mvnts[i] !== 0) {
-        let prev = newPositions[i];
-        newPositions[i] = helperPlayerMoves(i);
-        if (newPositions[i] !== prev) modified = true;
+  function userKeyMovesLoopClosure() {
+    let last_ts = Date.now();
+    
+    function userKeyMovesLoop() {
+      let curr_ts = Date.now();
+      let newPositions = players.positions; // this is problematic (will mutate state directly)
+      let modified = false;
+  
+      for (let i = 0; i < players.numPlayers; ++i) {
+        if (players.mvnts[i] !== 0) {
+          let prev = newPositions[i];
+          newPositions[i] = helperPlayerMoves(i, curr_ts - last_ts);
+          if (newPositions[i] !== prev) modified = true;
+        }
       }
+  
+      if (modified) {
+        console.log('modif')
+        setPlayers(Object.assign({}, players, { positions: newPositions }));
+      }    
+      last_ts = curr_ts;
     }
 
-    if (modified) {
-      console.log('modif')
-      setPlayers(Object.assign({}, players, { positions: newPositions }));
-    }    
+    return userKeyMovesLoop;
   }
+
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -185,7 +194,8 @@ function GameManager(props) {
 
 
   useEffect(() => { // Loop for player movements
-    let interval = setInterval(userKeyMovesLoop, timeoutPeriodPlayer);
+    let userKeyMovesLoop = userKeyMovesLoopClosure();
+    let interval = setInterval(() => userKeyMovesLoop(), timeoutPeriodPlayer);
     return (() => clearInterval(interval));
   }, [players]);
 
