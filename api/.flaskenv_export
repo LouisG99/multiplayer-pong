@@ -1,0 +1,9 @@
+export FLASK_APP=api.py
+export FLASK_ENV=development
+export FLASK_RUN_PORT=5000
+
+# with docker, each service is accessible by their name
+export POSTGRES_URL="db"
+export POSTGRES_USER="postgres"
+export POSTGRES_PW="password"
+export POSTGRES_DB="pong_db"

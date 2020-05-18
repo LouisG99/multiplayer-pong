@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  api:
+    build: .
+    depends_on: 
+      - db
+    networks:
+      - default
+    ports:
+      - "5000:5000"
+    restart: always
+
+  db:
+    environment: 
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pong_db
+    image: postgres:latest
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # to persist the db data beyond lifetime of container
+    networks:
+      - default
+    # ports:  # i dont think this is needed as the db should only be accessible by api, not outside world
+    #   - "5405:5432"
+    restart: always
+
+volumes: 
+  postgres_data:

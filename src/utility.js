@@ -24,9 +24,14 @@ function getRelativeHeight(n) {
   return n * window.innerHeight;
 }
 
+function getBaseUrl() {
+  if (process.env.NODE_ENV === 'production') return 'domain/';
+  else return ''; // proxy to react host for dev
+}
+
 /* returns promise containing Raw Response */
 function sendPostRequest(url, body) {
-  return fetch(url, {
+  return fetch(getBaseUrl() + url, {
     method: 'POST', 
     headers: {
       'Content-Type': 'application/json'
@@ -37,7 +42,7 @@ function sendPostRequest(url, body) {
 
 /* returns promise containing Raw Response */
 function sendGetRequest(url) {
-  return fetch(url, {
+  return fetch(getBaseUrl() + url, {
     method: 'GET', 
     headers: {
       'Content-Type': 'application/json'
@@ -45,6 +50,7 @@ function sendGetRequest(url) {
   });
 }
 
+console.log(process.env.NODE_ENV)
 
 export { 
   widthOpposite, 
