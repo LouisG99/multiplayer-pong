@@ -1,14 +1,23 @@
 version: '3'
 
 services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "5000:80" # only outfacing component
+    depends_on: 
+      - api
+
   api:
     build: .
     depends_on: 
       - db
     networks:
       - default
-    ports:
-      - "5000:5000"
+    # ports:
+    #   - "5000:5000"
+    expose: # gunicorn server only exposed internally now
+      - "5000"
     restart: always
 
   db:
