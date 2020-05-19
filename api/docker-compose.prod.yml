@@ -1,0 +1,42 @@
+version: '3'
+
+services:
+  nginx:
+    image: api_nginx:latest
+    build: ./nginx
+    ports:
+      - "5000:80" # only outfacing component
+    depends_on: 
+      - api
+    networks: 
+      - backend
+
+  api:
+    image: api_api:latest
+    build: .
+    depends_on: 
+      - db
+    networks:
+      - backend
+    restart: always
+
+
+  db:
+    environment: 
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pong_db
+    image: postgres:latest
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # not really applicable here
+    networks:
+      - backend
+    restart: always
+
+networks: 
+  backend:
+
+volumes: 
+  postgres_data:
