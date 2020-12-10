@@ -3,6 +3,6 @@ FLASK_ENV=development
 FLASK_RUN_PORT=5000
 
 POSTGRES_URL="127.0.0.1:5432"
-POSTGRES_USER="postgres"
+POSTGRES_USER="pong_user"
 POSTGRES_PW="password"
 POSTGRES_DB="pong_db"

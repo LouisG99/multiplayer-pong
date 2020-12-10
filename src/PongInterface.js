@@ -1,8 +1,8 @@
 import React, { Component, useState, useEffect } from 'react';
 import { Stage, Layer } from 'react-konva';
 
-import { isWithinXBoundaries, isWithinYBoundaries } from './utility';
-import { BackgroundRect, Ball, PlayerStick } from './GameObjects';
+import { isWithinXBoundaries, isWithinYBoundaries, generatePlayerLimits } from './utility';
+import { BackgroundRect, Ball, PlayerStick, PlayerStick2 } from './GameObjects';
 import { socketGame } from './SocketWrapper';
 
 class BallState {
@@ -39,7 +39,7 @@ function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
 }
 
 
-function GameManager(props) {
+function GameEngine(props) {
   const timeoutPeriodBall = 10; // ms
   const timeoutPeriodPlayer = 20; // ms
 
@@ -165,12 +165,13 @@ function GameManager(props) {
         if (p_cp.mvnts[i] !== 0) {
           let prev = p_cp.positions[i];
           p_cp.positions[i] = helperPlayerMoves(i, curr_ts - last_ts);
-          if (p_cp.positions[i] !== prev) modified = true;
+          modified |= (p_cp.positions[i] !== prev);
         }
       }
 
-      if (modified) setPlayers(Object.assign(p_cp, players));
-      
+      if (modified) {
+        setPlayers(Object.assign({}, players, { mvnts: p_cp.mvnts }));
+      }
       last_ts = curr_ts;
     }
 
@@ -179,20 +180,35 @@ function GameManager(props) {
 
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    socketGame.socket.on('player move', data => handleOtherPlayerUpdate(data));
-    socketGame.socket.on('player rebound', data => handlePlayerRebound(data));
+    /* This event listener sets ballObj but doesn't read its value so ne need to make it
+       dependent on it */
     socketGame.socket.on('game on', handleGameOn);
   }, []);
 
 
   useEffect(() => { // Loop for player movements
+    /* These eventListeners need to read players as they access the currentMvnt */
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    socketGame.socket.on('player move', handleOtherPlayerUpdate);
+    socketGame.socket.on('player rebound', handlePlayerRebound);
+
     let userKeyMovesLoop = userKeyMovesLoopClosure();
     let interval = setInterval(() => userKeyMovesLoop(), timeoutPeriodPlayer);
-    return (() => clearInterval(interval));
+
+    return (() => {
+      clearInterval(interval);
+
+      // necessary to remove listeners so they're not attached more than once at next call
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+
+      socketGame.socket.off('player move', handleOtherPlayerUpdate);
+      socketGame.socket.off('player rebound', handlePlayerRebound);
+    });
   }, [players]);
+
 
   useEffect(() => setLastBallTs(gameOn ? Date.now() : null), [gameOn])
 
@@ -229,7 +245,6 @@ function GameManager(props) {
     }));
     setGameOn(true);
   }
-
   
   return (
     <Layer>
@@ -278,6 +293,11 @@ function PongInterface(props) {
 
   if (props.waitingForPlayers) return <h2>Waiting for players</h2>;
 
+  // let limits = generatePlayerLimits(borderLimits, 8);
+  // let maplimits = limits.map((lim, index) => {
+  //   return <PlayerStick2 limits={lim}/>
+  // });
+
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
       {/* Background Layer */}
@@ -286,10 +306,12 @@ function PongInterface(props) {
       </Layer>
 
       {/* Players + Ball Layer */}
-      <GameManager 
+      <GameEngine 
         borderLimits={borderLimits} 
         gameConfig={props.gameConfig}
         />
+
+        {/* <Layer>{maplimits}</Layer> */}
     </Stage>
   );
 }

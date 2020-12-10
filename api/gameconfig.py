@@ -4,10 +4,11 @@
 config = {
   'startBall': [0.5, 0.1],
   'initBallSpeed': [-0.0005, 0.0], 
+  # 'initBallSpeed': [0.0, 0.0], 
   'lengthPlayer': 0.12, 
   # 'lengthPlayer': 1.0, 
   'playerSpeed': 0.001, 
   'ballSize': 0.025
 }
 
-pointTimeoutPeriod = 2 # seconds
+pointTimeoutPeriod = 2 # seconds 

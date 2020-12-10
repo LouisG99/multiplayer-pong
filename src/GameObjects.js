@@ -38,5 +38,13 @@ function PlayerStick(props) {
   return <Line points={points} strokeWidth={lineWidth} stroke="black"/>;
 }
 
+function PlayerStick2(props) {
+  const lineWidth = 10; // px
 
-export { BackgroundRect, Ball, PlayerStick };
+  const points = props.limits.start.concat(props.limits.end);
+
+  return <Line points={points} strokeWidth={lineWidth} stroke="black"/>;
+}
+
+
+export { BackgroundRect, Ball, PlayerStick, PlayerStick2 };

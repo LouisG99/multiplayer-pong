@@ -50,7 +50,46 @@ function sendGetRequest(url) {
   });
 }
 
-console.log(process.env.NODE_ENV)
+function getRadius(borderLimits, midX, midY) {
+  let horiz = midX - borderLimits[0];
+  let vertic = midY - borderLimits[1];
+  return Math.min(horiz, vertic);
+}
+
+function initVec(n) {
+  let vec = [];
+  for (let i = 0; i < n; ++i) {
+    vec.push({});
+  }
+  return vec;
+}
+
+/* [ {start: [x1, y1], end: [x2, y2]} ]
+*/
+function generatePlayerLimits(borderLimits, numPlayers) {
+  const midX = (borderLimits[0] + borderLimits[4]) / 2;
+  const midY = (borderLimits[1] + borderLimits[3]) / 2;
+  const radius = getRadius(borderLimits, midX, midY);
+  const angleStep = 2 * Math.PI / numPlayers;
+
+  let currAngle = 0.0;
+  const playerLimits = initVec(numPlayers);
+  const firstLim = [getRelativeWidth(midX + radius), getRelativeHeight(midY)]; // start at trigo angle 0, inverse clockwise
+  playerLimits[0].start = firstLim;
+  playerLimits[numPlayers-1].end = firstLim;
+
+  for (let i = 0; i < numPlayers - 1; ++i) {
+    currAngle += angleStep;
+    const newX = getRelativeWidth(midX + Math.cos(currAngle) * radius);
+    const newY = getRelativeHeight(midY + Math.sin(currAngle) * radius);
+    playerLimits[i].end = [newX, newY];
+    playerLimits[i+1].start = [newX, newY];
+  }
+
+  return playerLimits;
+}
+
+
 
 export { 
   widthOpposite, 
@@ -60,5 +99,6 @@ export {
   sendPostRequest, 
   sendGetRequest, 
   getRelativeWidth, 
-  getRelativeHeight
+  getRelativeHeight, 
+  generatePlayerLimits
 };
