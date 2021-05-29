@@ -84,9 +84,12 @@ def handle_join_game_event():
   from gameconfig import config
   game_config = config.copy()
   game_config['playerIndex'] = add_as_active_player(game_id)
+  game_config['numPlayers'] = game_query.numPlayers
   emit_private('game config', game_config)
 
-  if game_config['playerIndex'] == game_query.numPlayers-1:
+# TODO: fix
+  # if game_config['playerIndex'] == game_query.numPlayers-1:
+  if True:
     all_players_ready_alert(game_id)
 
 

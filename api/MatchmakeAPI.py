@@ -3,7 +3,7 @@ from api import app, db, psql_session
 from models import Users, ActiveGames
 
 MIN_NUMPLAYERS = 1
-MAX_NUMPLAYERS = 2
+MAX_NUMPLAYERS = 10
 
 matchmake_api = Blueprint('matchmake_api', __name__)
 

@@ -5,6 +5,29 @@ function heightOpposite(y) {
   return window.innerHeight - y;
 }
 
+function getCircleParams(borderLimits) {
+  let xCenter = (getRelativeWidth(borderLimits[0]) + getRelativeWidth(borderLimits[4])) / 2;
+  let yCenter = (getRelativeHeight(borderLimits[1]) + getRelativeHeight(borderLimits[3])) / 2;
+  let radius = Math.min(
+    getRelativeWidth(borderLimits[4]) - getRelativeWidth(borderLimits[0]),
+    getRelativeHeight(borderLimits[3]) - getRelativeHeight(borderLimits[1])
+  ) / 2;
+
+  return [xCenter, yCenter, radius]
+} 
+
+function getAngleIncrement(numPlayers) {
+  return 2 * Math.PI / numPlayers;
+}
+
+function projectPointOnLine(x, y, slope, yint) {
+  var slope2 = -1 / slope;
+  var yint2 = y - slope2 * x;
+  var nx = (yint2 - yint) / (slope - slope2);
+  return {x: nx, y: (slope2 * nx) + yint2};
+  // return {x: nx, y: (slope * nx) + yint};
+}
+
 function isWithinXBoundaries(x, y, borderLimits, size, speed) {
   if (x < borderLimits[0]) return speed[0] >= 0; // if already changed course, count as within
   if (x + size > borderLimits[4]) return speed[0] <= 0;
@@ -90,10 +113,12 @@ function generatePlayerLimits(borderLimits, numPlayers) {
 }
 
 
-
 export { 
   widthOpposite, 
   heightOpposite,
+  getCircleParams,
+  getAngleIncrement,
+  projectPointOnLine,
   isWithinXBoundaries,
   isWithinYBoundaries, 
   sendPostRequest, 

@@ -24,18 +24,27 @@ function Ball(props) {
 }
 
 function PlayerStick(props) {
-  let lineWidth = 10; // px
+  let stickWidth = 10; // px
+  let boundaryWidth = stickWidth; // px
+  let stickStroke = props.isLocalPlayer ? "red" : "black";
+  let boundaryStroke = props.isLocalPlayer ? "blue" : "grey";
+  let boundaryOpacity = 0.2; // between 0 & 1
 
-  let length = getRelativeHeight(props.lengthPlayer);
-  let y = getRelativeHeight(props.y);
-  let x = props.leftPlayer ? 
-    getRelativeWidth(props.borderLimits[0]) - lineWidth / 2 
-    :
-    getRelativeWidth(props.borderLimits[4]) + lineWidth / 2;
-  
-  let points = [x, y, x, y + length];
-
-  return <Line points={points} strokeWidth={lineWidth} stroke="black"/>;
+  return (
+    <>
+      <Line 
+        points={props.points} 
+        strokeWidth={stickWidth} 
+        stroke={stickStroke}
+      />
+      <Line
+        points={props.surfaceToCoverLimits}
+        strokeWidth={boundaryWidth} 
+        stroke={boundaryStroke}
+        opacity={boundaryOpacity}
+      />
+    </>
+  );
 }
 
 function PlayerStick2(props) {
