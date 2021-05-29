@@ -166,7 +166,7 @@ function GameEngine(props) {
   // TODO: fix with more players now
   function checkPlayerThere(x, topY) {
     x = getRelativeWidth(x);
-    topY = getRelativeWidth(topY);
+    topY = getRelativeHeight(topY);
     // let bottomY = topY + ballObj.size;
 
     let [playerIndex, angle] = getBallPlayerArea(x, topY);
