@@ -133,6 +133,8 @@ def handle_end_game(game_id, maxActivePlayer):
   emit('game end', { 'winner': winnerUser.username }, room=game_id)
 
 
+# TODO: change this to be negative scoring -> when ball goes in a player area he loses a point
+# last one standing typa thing
 #update scores of other players (player wins a point everytime another misses)
 # return true if game continues, false if game is done (max score reached)
 def update_player_scores(game_id, user_id):

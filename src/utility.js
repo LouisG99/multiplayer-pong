@@ -5,6 +5,10 @@ function heightOpposite(y) {
   return window.innerHeight - y;
 }
 
+function getDotProduct(vec1, vec2) {
+  return vec1[0] * vec2[0] + vec1[1] * vec2[1];
+}
+
 function getCircleParams(borderLimits) {
   let xCenter = (getRelativeWidth(borderLimits[0]) + getRelativeWidth(borderLimits[4])) / 2;
   let yCenter = (getRelativeHeight(borderLimits[1]) + getRelativeHeight(borderLimits[3])) / 2;
@@ -116,6 +120,7 @@ function generatePlayerLimits(borderLimits, numPlayers) {
 export { 
   widthOpposite, 
   heightOpposite,
+  getDotProduct,
   getCircleParams,
   getAngleIncrement,
   projectPointOnLine,

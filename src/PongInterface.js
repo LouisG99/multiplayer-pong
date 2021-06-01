@@ -1,13 +1,11 @@
 import React, { Component, useState, useEffect } from 'react';
 import { Stage, Layer } from 'react-konva';
 
-import { 
-  isWithinXBoundaries, 
-  isWithinYBoundaries, 
+import {
+  getDotProduct,
   getCircleParams,
   getAngleIncrement,
-  projectPointOnLine,
-  generatePlayerLimits, 
+  projectPointOnLine, 
   getRelativeWidth, 
   getRelativeHeight,
 } from './utility';
@@ -131,10 +129,9 @@ function GameEngine(props) {
 
 
   // returns index of which player "owns" section of "disk" the ball is in
-  // [playerIndex, angle (between 0 and 2*Pi)]
-  function getBallPlayerArea(x, topY) {
+  function getBallPlayerArea(x, y) {
     let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-    let xDiff = x - xCenter, yDiff = topY - yCenter;
+    let xDiff = x - xCenter, yDiff = y - yCenter;
     let angle = Math.atan(yDiff / xDiff); // returns value between -pi/2 and pi/2
     if (angle > 0 && xDiff < 0 && yDiff < 0) {
       angle += Math.PI;
@@ -146,48 +143,52 @@ function GameEngine(props) {
       angle += 2 * Math.PI;
     }
 
-    return [Math.floor(angle / getAngleIncrement(props.gameConfig.numPlayers)), angle];
+    return Math.floor(angle / getAngleIncrement(props.gameConfig.numPlayers));
   }
 
   // {'x': , 'y': }
-  function projectBallOnBoundary(x, topY, playerIndex) {
+  function projectBallOnBoundary(x, y, playerIndex) {
     let playerLimits = players.surfaceToCoverLimits[playerIndex];
     let boundaryYSlope = (playerLimits[3] - playerLimits[1]) / (playerLimits[2] - playerLimits[0]);
     let boundaryYInt = playerLimits[1] - boundaryYSlope * playerLimits[0];
-    console.log(playerLimits, boundaryYSlope, boundaryYInt);
-    return projectPointOnLine(x, topY, boundaryYSlope, boundaryYInt);
+
+    return projectPointOnLine(x, y, boundaryYSlope, boundaryYInt);
   }
 
-  /**
-   * returns [bool1, bool2]
-   * bool1: where a player is there
-   * bool2: whether the boundary is that of the client
-   */ 
-  // TODO: fix with more players now
-  function checkPlayerThere(x, topY) {
-    x = getRelativeWidth(x);
-    topY = getRelativeHeight(topY);
-    // let bottomY = topY + ballObj.size;
+  function getSpeedBoundaryNormalAngle(x, y, playerIndex) {
+    let playerLimits = players.surfaceToCoverLimits[playerIndex];
+    let boundaryVector = [playerLimits[3] - playerLimits[1], playerLimits[2] - playerLimits[0]];
+    let dotProduct = getDotProduct(boundaryVector, ballObj.speed);
+    let sizeSpeedVec = Math.sqrt(Math.pow(ballObj.speed[0], 2) + Math.pow(ballObj.speed[1], 2));
+    let sizeBoundaryVec = Math.sqrt(Math.pow(boundaryVector[0], 2) + Math.pow(boundaryVector[1], 2));
+    let cosAngle = dotProduct / (sizeSpeedVec * sizeBoundaryVec);
 
-    let [playerIndex, angle] = getBallPlayerArea(x, topY);
+    return Math.acos(cosAngle);
+  }
+
+  // return [whetherBoundaryIsHit, ifPointWasScore/Lost, whichPlayerArea]
+  function checkPlayerThere(x, y) {
+    x = getRelativeWidth(x);
+    y = getRelativeHeight(y);
+
+    let playerIndex = getBallPlayerArea(x, y);
     let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-    let projectPoint = projectBallOnBoundary(x, topY, playerIndex);
+    let projectPoint = projectBallOnBoundary(x, y, playerIndex);
 
     let projectPointDistanceCenter = Math.sqrt(
       Math.pow(projectPoint['x'] - xCenter, 2) + Math.pow(projectPoint['y'] - yCenter, 2)
     );
     let ballDistanceCenter = Math.sqrt(
-      Math.pow(x - xCenter, 2) + Math.pow(topY - yCenter, 2)
+      Math.pow(x - xCenter, 2) + Math.pow(y - yCenter, 2)
     );
 
     let boundaryHit = false, pointScored = false;
-    console.log(x, topY, projectPoint, players.positions[playerIndex], ballDistanceCenter, projectPointDistanceCenter);
 
     if (ballDistanceCenter >= projectPointDistanceCenter) {
       boundaryHit = true;
       let positions = players.positions[playerIndex];
 
-      if (positions[0] == positions[2]) {
+      if (positions[0] === positions[2]) {
         let minYPos = Math.min(positions[1], positions[3]);
         let maxYPos = Math.max(positions[1], positions[3]);
         pointScored = projectPoint['y'] < minYPos || projectPoint['y'] > maxYPos;
@@ -198,22 +199,18 @@ function GameEngine(props) {
       }
     }
 
-    return [boundaryHit, pointScored, playerIndex === props.gameConfig.playerIndex]
-
-    // let player = (x < props.borderLimits[0]) ? 0 : 1;
-
-    // let playerTop = players.positions[player];
-    // let playerThere = (bottomY >= playerTop && topY <= playerTop + players.length);
-    // return [playerThere, player === players.playerIndex];
+    return [boundaryHit, pointScored, playerIndex];
   }
 
-  function getReboundXSpeed() {
-    // TODO
-    return [-ballObj.speed[0], -ballObj.speed[1]];
-    return [-ballObj.speed[0], ballObj.speed[1]];
-  }
-  function getReboundYSpeed() {
-    return [ballObj.speed[0], -ballObj.speed[1]]
+  function getReboundSpeed(x, y, playerIndex) {
+    let normalAngle = getSpeedBoundaryNormalAngle(x, y, playerIndex);
+    let normalVec = [Math.cos(normalAngle), Math.sin(normalAngle)];
+    let prevSpeed = ballObj.speed;
+    let ratioPerpPart = getDotProduct(prevSpeed, normalVec) / getDotProduct(normalVec, normalVec);
+    let perpendicularPart = [normalVec[0] * ratioPerpPart, normalVec[1] * ratioPerpPart];
+    let parallelPart = [prevSpeed[0] - perpendicularPart[0], prevSpeed[1] - perpendicularPart[1]];
+
+    return [parallelPart[0] - perpendicularPart[0], parallelPart[1] - perpendicularPart[1]];;
   }
 
   function handleEndPoint(clientBoundary) {
@@ -224,37 +221,23 @@ function GameEngine(props) {
   }
 
   function updateSpeed(x, y) {
-    // console.log(players, players.surfaceToCoverLimits);
-    // if (typeof players.surfaceToCoverLimits === 'undefined') return [0, 0];
-    // let inXBounds = isWithinXBoundaries(x, y, props.borderLimits, ballObj.size, ballObj.speed);
-    // let inYBounds = isWithinYBoundaries(x, y, props.borderLimits, ballObj.size, ballObj.speed);
+    const [boundaryHit, pointScored, playerIndex] = checkPlayerThere(x, y);
+    let clientBoundary = playerIndex === props.gameConfig.playerIndex;
 
-    // if (inXBounds && inYBounds) return ballObj.speed;
-
-    const [boundaryHit, pointScored, clientBoundary] = checkPlayerThere(x, y);
-    console.log(boundaryHit, pointScored, clientBoundary);
     if (!boundaryHit) {
       return ballObj.speed;
-    } else if (boundaryHit && !pointScored) {
-      let newSpeed = getReboundXSpeed();
-      if (clientBoundary) socketGame.updatePlayerRebound([x, y], newSpeed);
+    }
+    else if (boundaryHit && !pointScored) {
+      let newSpeed = getReboundSpeed(x, y, playerIndex);
+      if (clientBoundary) {
+        socketGame.updatePlayerRebound([x, y], newSpeed);
+      }
       return newSpeed;
-    } else {
+    } 
+    else {
       handleEndPoint(clientBoundary);
       return [0, 0];
     }
-    // if (!inXBounds && playerIsThere) { // player rebound
-    //   let newSpeed = getReboundXSpeed();
-    //   if (clientBoundary) socketGame.updatePlayerRebound([x, y], newSpeed);
-    //   return newSpeed;
-    // }
-    // else if (inXBounds && !inYBounds) {
-    //   return getReboundYSpeed();
-    // }
-    // else {
-    //   handleEndPoint(clientBoundary);
-    //   return [0, 0];
-    // }
   }
 
   
@@ -262,7 +245,11 @@ function GameEngine(props) {
     let curr_ts = Date.now();
     if (lastBallTs) {
       let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, lastBallTs);
-      setBallObj(Object.assign({}, ballObj, { position: [x, y], speed: updateSpeed(x, y) }));
+      let newSpeed = updateSpeed(x + ballObj.size / 2, y + ballObj.size / 2); // use center of ball as ref
+      setBallObj(Object.assign({}, ballObj, { 
+        position: [x, y], 
+        speed: newSpeed
+      }));
     }
     setLastBallTs(curr_ts);
   }
