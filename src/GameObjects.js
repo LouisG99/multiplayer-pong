@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Rect, Line } from 'react-konva';
+import { Rect, Arc } from 'react-konva';
 
 import { getRelativeWidth, getRelativeHeight } from './utility';
 
@@ -23,37 +23,40 @@ function Ball(props) {
   )
 }
 
-function PlayerStick(props) {
-  let stickWidth = 10; // px
-  let boundaryWidth = stickWidth; // px
-  let stickStroke = props.isLocalPlayer ? "red" : "black";
-  let boundaryStroke = props.isLocalPlayer ? "blue" : "grey";
+function PlayerArc(props) {
+  let innerOuterRadiusDiff = 10; // px
+  let playerColor = props.isLocalPlayer ? "red" : "black";
+  let boundaryColor = props.isLocalPlayer ? "blue" : "grey";
   let boundaryOpacity = 0.2; // between 0 & 1
 
   return (
     <>
-      <Line 
-        points={props.points} 
-        strokeWidth={stickWidth} 
-        stroke={stickStroke}
+      <Arc 
+        x={props.x}
+        y={props.y}
+        rotation={props.playerRotation}
+        angle={props.playerAngle}
+        innerRadius={props.innerRadius}
+        outerRadius={props.innerRadius + innerOuterRadiusDiff}
+        fill={playerColor}
       />
-      <Line
-        points={props.surfaceToCoverLimits}
-        strokeWidth={boundaryWidth} 
-        stroke={boundaryStroke}
+      <Arc 
+         x={props.x}
+         y={props.y}
+         rotation={props.boundaryRotation}
+         angle={props.boundaryAngle}
+         innerRadius={props.innerRadius}
+         outerRadius={props.innerRadius + innerOuterRadiusDiff}
+        fill={boundaryColor}
         opacity={boundaryOpacity}
       />
     </>
   );
 }
 
-function PlayerStick2(props) {
-  const lineWidth = 10; // px
 
-  const points = props.limits.start.concat(props.limits.end);
-
-  return <Line points={points} strokeWidth={lineWidth} stroke="black"/>;
-}
-
-
-export { BackgroundRect, Ball, PlayerStick, PlayerStick2 };
+export { 
+  BackgroundRect, 
+  Ball,
+  PlayerArc 
+};

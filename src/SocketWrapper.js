@@ -24,10 +24,9 @@ class SocketWrapper {
     }
   }
 
-  updatePlayerMove(playerIndex, newPosition, mvnt) { // [x, y]
-    // console.log('socket updateplayermove');
+  updatePlayerMove(playerIndex, newAngle, mvnt) { // [x, y]
     this.socket.emit('player move', { 
-      playerIndex: playerIndex, newPosition: newPosition, mvnt: mvnt
+      playerIndex: playerIndex, newAngle: newAngle, mvnt: mvnt
     });
   }
 

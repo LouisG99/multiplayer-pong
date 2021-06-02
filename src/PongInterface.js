@@ -1,16 +1,18 @@
 import React, { Component, useState, useEffect } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { Stage, Layer, Arc } from 'react-konva';
 
 import {
   getDotProduct,
+  radToDegree,
+  degreeToRad,
+  getAngleFromCoords,
   getCircleParams,
-  getAngleIncrement,
   projectPointOnLine, 
   getRelativeWidth, 
   getRelativeHeight,
 } from './utility';
 
-import { BackgroundRect, Ball, PlayerStick, PlayerStick2 } from './GameObjects';
+import { BackgroundRect, Ball, PlayerArc } from './GameObjects';
 import { socketGame } from './SocketWrapper';
 
 
@@ -23,8 +25,6 @@ class BallState {
 }
 
 class Players {
-  // TODO: change length and speed of player depending on area they have to cover 
-  // (the + the # of player, the smaller these should become)
   constructor(gameConfig, borderLimitsIn) {
     this.length = gameConfig.lengthPlayer;
     this.speed = gameConfig.playerSpeed;
@@ -32,82 +32,92 @@ class Players {
     this.borderLimits = borderLimitsIn;
     this.playerIndex = gameConfig.playerIndex; // index of client
 
-    this.positions = []; // [[xstart_player1, ystart_player1, xend_player1, yend_player1]]
-    this.XYspeeds = []; // [{'x': xspeed_player1, 'y': yspeed_player1}]
+    this.angles = []; // [anglePlayer1]
     this.mvnts = []; // 1, -1, or 0 for all players
-    this.surfaceToCoverLimits = []; // [[startx, starty, endx, endy]]
-    this.stickLimits = []; // [{'start': {'minX':, 'minY':, 'maxX':, 'maxY': }, 'end': {...}}]x
+
+    this.boundaryAngle = 360. / this.numPlayers; // degrees, make sure as + player come, size of player arc decreases
+    let ratioBoundaryPlayer = 1. / 5;
+    this.playerAngle = this.boundaryAngle * ratioBoundaryPlayer;
 
     for (let i = 0; i < this.numPlayers; ++i) {
-      let x = this.getXFromIndex(i), y = this.getYFromIndex(i);
-      let [endX, endY] = this.getEndXYFromIndex(i, x, y);
-      this.positions.push([x, y, endX, endY]);
-      this.XYspeeds.push(this.getXYSpeedsFromIndex(endX - x, endY - y));
+      let startAngle = (this.getMinAngleFromIndex(i) + this.getMaxAngleFromIndex(i) - this.playerAngle) / 2;
+      this.angles.push(startAngle);
       this.mvnts.push(0);
-      this.surfaceToCoverLimits.push([x, y, this.getXFromIndex(i+1), this.getYFromIndex(i+1)]);
-      this.stickLimits.push(this.getStickLimitsFromIndex(i));
     }
+
+    this.getMinAngleFromIndex = this.getMinAngleFromIndex.bind(this);
+    this.getMaxAngleFromIndex = this.getMaxAngleFromIndex.bind(this);
   }
 
   getXFromIndex(playerIndex) {
     playerIndex = playerIndex % this.numPlayers; // so we can do +1
+    let playerAngle = this.angles[playerIndex];
     let [xCenter, _, radius] = getCircleParams(this.borderLimits);
 
-    return xCenter + radius * Math.cos(getAngleIncrement(this.numPlayers) * playerIndex);
+    return xCenter + radius * Math.cos(playerAngle);
   }
 
   getYFromIndex(playerIndex) {
     playerIndex = playerIndex % this.numPlayers; // so we can do +1
+    let playerAngle = this.angles[playerIndex];
     let [_, yCenter, radius] = getCircleParams(this.borderLimits);
 
-    return yCenter + radius * Math.sin(getAngleIncrement(this.numPlayers) * playerIndex);
+    return yCenter + radius * Math.sin(playerAngle);
   }
 
-  getEndXYFromIndex(playerIndex, x, y) {
-    if (this.numPlayers === 2) {
-      return [x, y + getRelativeHeight(this.length)];
-    }
-    let nextX = this.getXFromIndex(playerIndex + 1);
-    let nextY = this.getYFromIndex(playerIndex + 1);
-    let diffX = nextX - x;
-    let diffY = nextY - y;
-    let ratio = getRelativeHeight(this.length) / (Math.sqrt(Math.pow(diffX, 2) + Math.pow(diffY, 2)));
-
-    return[x + ratio * diffX, y + ratio * diffY];
+  getMinAngleFromIndex(playerIndex) {
+    return this.boundaryAngle * playerIndex;
   }
 
-  getXYSpeedsFromIndex(diffX, diffY) {
-    if (this.numPlayers === 2) {
-      return {'x': 0, 'y': this.speed};
-    }
-
-    return {
-      'x': diffX / getRelativeHeight(this.length) * this.speed, 
-      'y': diffY / getRelativeHeight(this.length) * this.speed
-    };
+  getMaxAngleFromIndex(playerIndex) {
+    return this.getMinAngleFromIndex(playerIndex + 1);
   }
 
-  getStickLimitsFromIndex(i) {
-    let x = this.positions[i][0], y = this.positions[i][1];
-    let diffX = this.positions[i][2] - x;
-    let diffY = this.positions[i][3] - y; 
-    let nextX = this.getXFromIndex(i+1), nextY = this.getYFromIndex(i+1);
+  // getEndXYFromIndex(playerIndex, x, y) {
+  //   if (this.numPlayers === 2) {
+  //     return [x, y + getRelativeHeight(this.length)];
+  //   }
+  //   let nextX = this.getXFromIndex(playerIndex + 1);
+  //   let nextY = this.getYFromIndex(playerIndex + 1);
+  //   let diffX = nextX - x;
+  //   let diffY = nextY - y;
+  //   let ratio = getRelativeHeight(this.length) / (Math.sqrt(Math.pow(diffX, 2) + Math.pow(diffY, 2)));
 
-    return {
-      'start': {
-        'minX': Math.min(x, nextX - diffX),
-        'minY': Math.min(y, nextY - diffY),
-        'maxX': Math.max(x, nextX - diffX),
-        'maxY': Math.max(y, nextY - diffY)
-      }, 
-      'end': {
-        'minX': Math.min(x + diffX, this.getXFromIndex(i+1)),
-        'minY': Math.min(y + diffY, this.getYFromIndex(i+1)),
-        'maxX': Math.max(x + diffX, this.getXFromIndex(i+1)),
-        'maxY': Math.max(y + diffY, this.getYFromIndex(i+1))
-      }
-    };
-  }
+  //   return[x + ratio * diffX, y + ratio * diffY];
+  // }
+
+  // getXYSpeedsFromIndex(diffX, diffY) {
+  //   if (this.numPlayers === 2) {
+  //     return {'x': 0, 'y': this.speed};
+  //   }
+
+  //   return {
+  //     'x': diffX / getRelativeHeight(this.length) * this.speed, 
+  //     'y': diffY / getRelativeHeight(this.length) * this.speed
+  //   };
+  // }
+
+  // getStickLimitsFromIndex(i) {
+  //   let x = this.positions[i][0], y = this.positions[i][1];
+  //   let diffX = this.positions[i][2] - x;
+  //   let diffY = this.positions[i][3] - y; 
+  //   let nextX = this.getXFromIndex(i+1), nextY = this.getYFromIndex(i+1);
+
+  //   return {
+  //     'start': {
+  //       'minX': Math.min(x, nextX - diffX),
+  //       'minY': Math.min(y, nextY - diffY),
+  //       'maxX': Math.max(x, nextX - diffX),
+  //       'maxY': Math.max(y, nextY - diffY)
+  //     }, 
+  //     'end': {
+  //       'minX': Math.min(x + diffX, this.getXFromIndex(i+1)),
+  //       'minY': Math.min(y + diffY, this.getYFromIndex(i+1)),
+  //       'maxX': Math.max(x + diffX, this.getXFromIndex(i+1)),
+  //       'maxY': Math.max(y + diffY, this.getYFromIndex(i+1))
+  //     }
+  //   };
+  // }
 }
 
 
@@ -131,29 +141,19 @@ function GameEngine(props) {
   // returns index of which player "owns" section of "disk" the ball is in
   function getBallPlayerArea(x, y) {
     let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-    let xDiff = x - xCenter, yDiff = y - yCenter;
-    let angle = Math.atan(yDiff / xDiff); // returns value between -pi/2 and pi/2
-    if (angle > 0 && xDiff < 0 && yDiff < 0) {
-      angle += Math.PI;
-    } else if (angle < 0 && xDiff < 0 && yDiff > 0) {
-      angle += Math.PI;
-    }
+    let angle = getAngleFromCoords(x, y, xCenter, yCenter);
 
-    if (angle < 0) {
-      angle += 2 * Math.PI;
-    }
-
-    return Math.floor(angle / getAngleIncrement(props.gameConfig.numPlayers));
+    return Math.floor(angle / players.boundaryAngle);
   }
 
   // {'x': , 'y': }
-  function projectBallOnBoundary(x, y, playerIndex) {
-    let playerLimits = players.surfaceToCoverLimits[playerIndex];
-    let boundaryYSlope = (playerLimits[3] - playerLimits[1]) / (playerLimits[2] - playerLimits[0]);
-    let boundaryYInt = playerLimits[1] - boundaryYSlope * playerLimits[0];
+  // function projectBallOnBoundary(x, y, playerIndex) {
+  //   let playerLimits = players.surfaceToCoverLimits[playerIndex];
+  //   let boundaryYSlope = (playerLimits[3] - playerLimits[1]) / (playerLimits[2] - playerLimits[0]);
+  //   let boundaryYInt = playerLimits[1] - boundaryYSlope * playerLimits[0];
 
-    return projectPointOnLine(x, y, boundaryYSlope, boundaryYInt);
-  }
+  //   return projectPointOnLine(x, y, boundaryYSlope, boundaryYInt);
+  // }
 
   function getSpeedBoundaryNormalAngle(x, y, playerIndex) {
     let playerLimits = players.surfaceToCoverLimits[playerIndex];
@@ -172,30 +172,20 @@ function GameEngine(props) {
     y = getRelativeHeight(y);
 
     let playerIndex = getBallPlayerArea(x, y);
-    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-    let projectPoint = projectBallOnBoundary(x, y, playerIndex);
-
-    let projectPointDistanceCenter = Math.sqrt(
-      Math.pow(projectPoint['x'] - xCenter, 2) + Math.pow(projectPoint['y'] - yCenter, 2)
-    );
+    let [xCenter, yCenter, radius] = getCircleParams(props.borderLimits);
     let ballDistanceCenter = Math.sqrt(
       Math.pow(x - xCenter, 2) + Math.pow(y - yCenter, 2)
     );
 
     let boundaryHit = false, pointScored = false;
 
-    if (ballDistanceCenter >= projectPointDistanceCenter) {
+    if (ballDistanceCenter >= radius) {
       boundaryHit = true;
-      let positions = players.positions[playerIndex];
+      let ballAngle = getAngleFromCoords(x, y, xCenter, yCenter);
+      let playerAngle = players.angles[playerIndex];
 
-      if (positions[0] === positions[2]) {
-        let minYPos = Math.min(positions[1], positions[3]);
-        let maxYPos = Math.max(positions[1], positions[3]);
-        pointScored = projectPoint['y'] < minYPos || projectPoint['y'] > maxYPos;
-      } else {
-        let minXPos = Math.min(positions[0], positions[2]);
-        let maxXPos = Math.max(positions[0], positions[2]);
-        pointScored = projectPoint['x'] < minXPos || projectPoint['x'] > maxXPos;
+      if (ballAngle >= playerAngle && ballAngle <= (playerAngle + players.playerAngle)) {
+        pointScored = true;
       }
     }
 
@@ -269,9 +259,9 @@ function GameEngine(props) {
     else if (e.keyCode === 40 && currMvnt === 1) return;
 
     let newMvnt = (e.keyCode === 38) ? -1 : 1;
-    let curr_pos = players.positions[players.playerIndex];
+    let curr_angle = players.angles[players.playerIndex];
 
-    socketGame.updatePlayerMove(players.playerIndex, curr_pos, newMvnt);
+    socketGame.updatePlayerMove(players.playerIndex, curr_angle, newMvnt);
     setPlayers(Object.assign({}, players, { 
       mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     }));
@@ -279,8 +269,8 @@ function GameEngine(props) {
 
   function handleKeyUp(e) {
     if (e.keyCode === 38 || e.keyCode === 40) {
-      let curr_pos = players.positions[players.playerIndex];
-      socketGame.updatePlayerMove(players.playerIndex, curr_pos, 0);
+      let curr_angle = players.angles[players.playerIndex];
+      socketGame.updatePlayerMove(players.playerIndex, curr_angle, 0);
       
       setPlayers(Object.assign({}, players, { 
         mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, 0) 
@@ -288,23 +278,12 @@ function GameEngine(props) {
     }
   }
 
-  function getNextPosition(oldPosition, mvnt, speed, ms_elapsed, minLimit, maxLimit) {
-    let nextPosition = oldPosition + mvnt * speed * ms_elapsed;
-    return Math.min(maxLimit, Math.max(minLimit, nextPosition));
-  }
+  function helperPlayerMoves(playerIndex, ms_elapsed) {
+    let nextAngle = players.angles[playerIndex] + players.mvnts[playerIndex] * players.speed * ms_elapsed;
+    let minAngle = players.getMinAngleFromIndex(playerIndex);
+    let maxAngle = players.getMaxAngleFromIndex(playerIndex) - players.playerAngle;
 
-  function helperPlayerMoves(index, ms_elapsed) {
-    let oldPosition = players.positions[index];
-    let XYspeed = players.XYspeeds[index];
-    let limits = players.stickLimits[index];
-    let mvnt = players.mvnts[index];
-
-    return [
-      getNextPosition(oldPosition[0], mvnt, XYspeed['x'], ms_elapsed, limits['start']['minX'], limits['start']['maxX']),
-      getNextPosition(oldPosition[1], mvnt, XYspeed['y'], ms_elapsed, limits['start']['minY'], limits['start']['maxY']),
-      getNextPosition(oldPosition[2], mvnt, XYspeed['x'], ms_elapsed, limits['end']['minX'], limits['end']['maxX']),
-      getNextPosition(oldPosition[3], mvnt, XYspeed['y'], ms_elapsed, limits['end']['minY'], limits['end']['maxY'])
-    ];
+    return Math.max(minAngle, Math.min(maxAngle, nextAngle));
   }
 
   function userKeyMovesLoopClosure() {
@@ -317,14 +296,14 @@ function GameEngine(props) {
 
       for (let i = 0; i < p_cp.numPlayers; ++i) {
         if (p_cp.mvnts[i] !== 0) {
-          let prev = p_cp.positions[i];
-          p_cp.positions[i] = helperPlayerMoves(i, curr_ts - last_ts);
-          modified |= JSON.stringify(p_cp.positions[i]) !== JSON.stringify(prev);
+          let prev = p_cp.angles[i];
+          p_cp.angles[i] = helperPlayerMoves(i, curr_ts - last_ts);
+          modified |= JSON.stringify(p_cp.angles[i]) !== JSON.stringify(prev);
         }
       }
 
       if (modified) {
-        setPlayers(Object.assign({}, players, { mvnts: p_cp.mvnts }));
+        setPlayers(Object.assign({}, players, { angles: p_cp.angles }));
       }
       last_ts = curr_ts;
     }
@@ -376,10 +355,10 @@ function GameEngine(props) {
   
 
   function handleOtherPlayerUpdate(update) {
-    let newPosition = modifIndexOfArr(players.positions, update.playerIndex, update.newPosition);
+    let newAngles = modifIndexOfArr(players.angles, update.playerIndex, update.newAngle);
     let newMvnts = modifIndexOfArr(players.mvnts, update.playerIndex, update.mvnt);
     setPlayers(Object.assign({}, players, { 
-      positions: newPosition, mvnts: newMvnts
+      angles: newAngles, mvnts: newMvnts
     }));
   }
 
@@ -400,20 +379,29 @@ function GameEngine(props) {
     setGameOn(true);
   }
 
-  let playerSticks = [];
+  let playerArcs = [];
+  let [xCenter, yCenter, innerRadius] = getCircleParams(props.borderLimits);
+
   for (var i = 0; i < props.gameConfig.numPlayers; i++) {
-    playerSticks.push(
-      <PlayerStick
-        points={players.positions[i]} 
+    let boundaryRotation = players.getMinAngleFromIndex(i);
+
+    playerArcs.push(
+      <PlayerArc
         isLocalPlayer={props.gameConfig.playerIndex === i}
-        surfaceToCoverLimits={players.surfaceToCoverLimits[i]}
+        x={xCenter}
+        y={yCenter}
+        innerRadius={innerRadius}
+        playerRotation={players.angles[i]}
+        boundaryRotation={boundaryRotation}
+        playerAngle={players.playerAngle}
+        boundaryAngle={players.boundaryAngle}
       />
     );
   }
   
   return (
     <Layer>      
-      {playerSticks}
+      {playerArcs}
 
       <Ball 
         borderLimits={props.borderLimits} 
@@ -446,9 +434,6 @@ function PongInterface(props) {
   if (props.waitingForPlayers) return <h2>Waiting for players</h2>;
 
   // let limits = generatePlayerLimits(borderLimits, 8);
-  // let maplimits = limits.map((lim, index) => {
-  //   return <PlayerStick2 limits={lim}/>
-  // });
 
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
@@ -462,8 +447,6 @@ function PongInterface(props) {
         borderLimits={borderLimits} 
         gameConfig={props.gameConfig}
         />
-
-        {/* <Layer>{maplimits}</Layer> */}
     </Stage>
   );
 }

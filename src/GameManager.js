@@ -58,7 +58,10 @@ function GameManager(props) {
     console.log('use effect')
 
     verifyGameId().then(data => {
-      if (!data.success) alert('Invalid code, try again');
+      if (!data.success) {
+        // TODO: put this back
+        // alert('Invalid code, try again');
+      }
       else socketInit()
     })
       

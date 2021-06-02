@@ -5,6 +5,31 @@ function heightOpposite(y) {
   return window.innerHeight - y;
 }
 
+function radToDegree(radAngle) {
+  return radAngle * 180.0 / Math.PI;
+}
+
+function degreeToRad(degreeAngle) {
+  return degreeAngle * Math.PI / 180.0;
+}
+
+// returns angle in degree (b/w 0 and 360)
+function getAngleFromCoords(x, y, xCenter, yCenter) {
+  let xDiff = x - xCenter, yDiff = y - yCenter;
+  let radAngle = Math.atan(yDiff / xDiff); // returns value between -pi/2 and pi/2
+  if (radAngle > 0 && xDiff < 0 && yDiff < 0) {
+    radAngle += Math.PI;
+  } else if (radAngle < 0 && xDiff < 0 && yDiff > 0) {
+    radAngle += Math.PI;
+  }
+
+  if (radAngle < 0) {
+    radAngle += 2 * Math.PI;
+  }
+
+  return radToDegree(radAngle);
+}
+
 function getDotProduct(vec1, vec2) {
   return vec1[0] * vec2[0] + vec1[1] * vec2[1];
 }
@@ -19,10 +44,6 @@ function getCircleParams(borderLimits) {
 
   return [xCenter, yCenter, radius]
 } 
-
-function getAngleIncrement(numPlayers) {
-  return 2 * Math.PI / numPlayers;
-}
 
 function projectPointOnLine(x, y, slope, yint) {
   var slope2 = -1 / slope;
@@ -119,10 +140,12 @@ function generatePlayerLimits(borderLimits, numPlayers) {
 
 export { 
   widthOpposite, 
-  heightOpposite,
+  heightOpposite, 
+  radToDegree,
+  degreeToRad,
+  getAngleFromCoords,
   getDotProduct,
   getCircleParams,
-  getAngleIncrement,
   projectPointOnLine,
   isWithinXBoundaries,
   isWithinYBoundaries, 
