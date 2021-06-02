@@ -1,13 +1,12 @@
-import React, { Component, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stage, Layer, Arc } from 'react-konva';
 
 import {
   getDotProduct,
-  radToDegree,
-  degreeToRad,
   getAngleFromCoords,
+  getVectorTangentToCircle,
+  getDistance,
   getCircleParams,
-  projectPointOnLine, 
   getRelativeWidth, 
   getRelativeHeight,
 } from './utility';
@@ -26,7 +25,7 @@ class BallState {
 
 class Players {
   constructor(gameConfig, borderLimitsIn) {
-    this.length = gameConfig.lengthPlayer;
+    let ratioBoundaryPlayer = gameConfig.ratioBoundaryPlayer;
     this.speed = gameConfig.playerSpeed;
     this.numPlayers = gameConfig.numPlayers;
     this.borderLimits = borderLimitsIn;
@@ -36,7 +35,6 @@ class Players {
     this.mvnts = []; // 1, -1, or 0 for all players
 
     this.boundaryAngle = 360. / this.numPlayers; // degrees, make sure as + player come, size of player arc decreases
-    let ratioBoundaryPlayer = 1. / 5;
     this.playerAngle = this.boundaryAngle * ratioBoundaryPlayer;
 
     for (let i = 0; i < this.numPlayers; ++i) {
@@ -47,6 +45,7 @@ class Players {
 
     this.getMinAngleFromIndex = this.getMinAngleFromIndex.bind(this);
     this.getMaxAngleFromIndex = this.getMaxAngleFromIndex.bind(this);
+    this.getXFromIndex = this.getXFromIndex.bind(this);
   }
 
   getXFromIndex(playerIndex) {
@@ -72,52 +71,6 @@ class Players {
   getMaxAngleFromIndex(playerIndex) {
     return this.getMinAngleFromIndex(playerIndex + 1);
   }
-
-  // getEndXYFromIndex(playerIndex, x, y) {
-  //   if (this.numPlayers === 2) {
-  //     return [x, y + getRelativeHeight(this.length)];
-  //   }
-  //   let nextX = this.getXFromIndex(playerIndex + 1);
-  //   let nextY = this.getYFromIndex(playerIndex + 1);
-  //   let diffX = nextX - x;
-  //   let diffY = nextY - y;
-  //   let ratio = getRelativeHeight(this.length) / (Math.sqrt(Math.pow(diffX, 2) + Math.pow(diffY, 2)));
-
-  //   return[x + ratio * diffX, y + ratio * diffY];
-  // }
-
-  // getXYSpeedsFromIndex(diffX, diffY) {
-  //   if (this.numPlayers === 2) {
-  //     return {'x': 0, 'y': this.speed};
-  //   }
-
-  //   return {
-  //     'x': diffX / getRelativeHeight(this.length) * this.speed, 
-  //     'y': diffY / getRelativeHeight(this.length) * this.speed
-  //   };
-  // }
-
-  // getStickLimitsFromIndex(i) {
-  //   let x = this.positions[i][0], y = this.positions[i][1];
-  //   let diffX = this.positions[i][2] - x;
-  //   let diffY = this.positions[i][3] - y; 
-  //   let nextX = this.getXFromIndex(i+1), nextY = this.getYFromIndex(i+1);
-
-  //   return {
-  //     'start': {
-  //       'minX': Math.min(x, nextX - diffX),
-  //       'minY': Math.min(y, nextY - diffY),
-  //       'maxX': Math.max(x, nextX - diffX),
-  //       'maxY': Math.max(y, nextY - diffY)
-  //     }, 
-  //     'end': {
-  //       'minX': Math.min(x + diffX, this.getXFromIndex(i+1)),
-  //       'minY': Math.min(y + diffY, this.getYFromIndex(i+1)),
-  //       'maxX': Math.max(x + diffX, this.getXFromIndex(i+1)),
-  //       'maxY': Math.max(y + diffY, this.getYFromIndex(i+1))
-  //     }
-  //   };
-  // }
 }
 
 
@@ -146,21 +99,15 @@ function GameEngine(props) {
     return Math.floor(angle / players.boundaryAngle);
   }
 
-  // {'x': , 'y': }
-  // function projectBallOnBoundary(x, y, playerIndex) {
-  //   let playerLimits = players.surfaceToCoverLimits[playerIndex];
-  //   let boundaryYSlope = (playerLimits[3] - playerLimits[1]) / (playerLimits[2] - playerLimits[0]);
-  //   let boundaryYInt = playerLimits[1] - boundaryYSlope * playerLimits[0];
-
-  //   return projectPointOnLine(x, y, boundaryYSlope, boundaryYInt);
-  // }
-
   function getSpeedBoundaryNormalAngle(x, y, playerIndex) {
-    let playerLimits = players.surfaceToCoverLimits[playerIndex];
-    let boundaryVector = [playerLimits[3] - playerLimits[1], playerLimits[2] - playerLimits[0]];
-    let dotProduct = getDotProduct(boundaryVector, ballObj.speed);
+    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
+    let distCenter = getDistance(x, y, xCenter, yCenter); // ball might not be exactly at dist=radius from center
+    let tangentVector = getVectorTangentToCircle(x, xCenter, distCenter);
+    console.log("tangent Vector:", tangentVector)
+
+    let dotProduct = getDotProduct(tangentVector, ballObj.speed);
     let sizeSpeedVec = Math.sqrt(Math.pow(ballObj.speed[0], 2) + Math.pow(ballObj.speed[1], 2));
-    let sizeBoundaryVec = Math.sqrt(Math.pow(boundaryVector[0], 2) + Math.pow(boundaryVector[1], 2));
+    let sizeBoundaryVec = Math.sqrt(Math.pow(tangentVector[0], 2) + Math.pow(tangentVector[1], 2));
     let cosAngle = dotProduct / (sizeSpeedVec * sizeBoundaryVec);
 
     return Math.acos(cosAngle);
@@ -173,10 +120,7 @@ function GameEngine(props) {
 
     let playerIndex = getBallPlayerArea(x, y);
     let [xCenter, yCenter, radius] = getCircleParams(props.borderLimits);
-    let ballDistanceCenter = Math.sqrt(
-      Math.pow(x - xCenter, 2) + Math.pow(y - yCenter, 2)
-    );
-
+    let ballDistanceCenter = getDistance(x, y, xCenter, yCenter);
     let boundaryHit = false, pointScored = false;
 
     if (ballDistanceCenter >= radius) {
@@ -184,7 +128,7 @@ function GameEngine(props) {
       let ballAngle = getAngleFromCoords(x, y, xCenter, yCenter);
       let playerAngle = players.angles[playerIndex];
 
-      if (ballAngle >= playerAngle && ballAngle <= (playerAngle + players.playerAngle)) {
+      if (ballAngle < playerAngle || ballAngle > (playerAngle + players.playerAngle)) {
         pointScored = true;
       }
     }
@@ -195,10 +139,15 @@ function GameEngine(props) {
   function getReboundSpeed(x, y, playerIndex) {
     let normalAngle = getSpeedBoundaryNormalAngle(x, y, playerIndex);
     let normalVec = [Math.cos(normalAngle), Math.sin(normalAngle)];
+    console.log("normal Angle:", normalAngle);
+    console.log("normal vec:", normalVec);
     let prevSpeed = ballObj.speed;
     let ratioPerpPart = getDotProduct(prevSpeed, normalVec) / getDotProduct(normalVec, normalVec);
     let perpendicularPart = [normalVec[0] * ratioPerpPart, normalVec[1] * ratioPerpPart];
     let parallelPart = [prevSpeed[0] - perpendicularPart[0], prevSpeed[1] - perpendicularPart[1]];
+
+    console.log("per part", perpendicularPart);
+    console.log("para part", parallelPart)
 
     return [parallelPart[0] - perpendicularPart[0], parallelPart[1] - perpendicularPart[1]];;
   }
@@ -398,6 +347,8 @@ function GameEngine(props) {
       />
     );
   }
+
+  // console.log(ballObj.position)
   
   return (
     <Layer>      

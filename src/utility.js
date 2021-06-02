@@ -30,6 +30,20 @@ function getAngleFromCoords(x, y, xCenter, yCenter) {
   return radToDegree(radAngle);
 }
 
+function getVectorTangentToCircle(x, xCenter, radius) {
+  // explanation for radius=1: https://ocw.mit.edu/courses/mathematics/18-01sc-single-variable-calculus-fall-2010/1.-differentiation/part-b-implicit-differentiation-and-inverse-functions/session-14-examples-of-implicit-differentiation/MIT18_01SCF10_Ses14a.pdf 
+  let xDiff = x - xCenter;
+  if (xDiff === radius) {
+    return [0, 1];
+  }
+  let slope = -xDiff / Math.sqrt(Math.pow(radius, 2) - Math.pow(xDiff, 2));
+  return [1, slope];
+}
+
+function getDistance(x1, y1, x2, y2) {
+  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+}
+
 function getDotProduct(vec1, vec2) {
   return vec1[0] * vec2[0] + vec1[1] * vec2[1];
 }
@@ -144,6 +158,8 @@ export {
   radToDegree,
   degreeToRad,
   getAngleFromCoords,
+  getVectorTangentToCircle,
+  getDistance,
   getDotProduct,
   getCircleParams,
   projectPointOnLine,
