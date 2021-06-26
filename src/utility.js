@@ -30,15 +30,17 @@ function getAngleFromCoords(x, y, xCenter, yCenter) {
   return radToDegree(radAngle);
 }
 
-function getVectorTangentToCircle(x, xCenter, radius) {
-  // explanation for radius=1: https://ocw.mit.edu/courses/mathematics/18-01sc-single-variable-calculus-fall-2010/1.-differentiation/part-b-implicit-differentiation-and-inverse-functions/session-14-examples-of-implicit-differentiation/MIT18_01SCF10_Ses14a.pdf 
-  let xDiff = x - xCenter;
-  if (xDiff === radius) {
-    return [0, 1];
-  }
-  let slope = -xDiff / Math.sqrt(Math.pow(radius, 2) - Math.pow(xDiff, 2));
-  return [1, slope];
+/* relative position defined as under class Ball src/PongInterface
+  this returns the position of the actual pixels (i.e. adapted to each clients window)
+ */
+function getCoordsFromCenterRelative(relativePosition, borderLimits) {
+  let [xCenter, yCenter, radius] = getCircleParams(borderLimits);
+  return [
+    xCenter + relativePosition[0] * radius, 
+    yCenter + relativePosition[1] * radius
+  ];
 }
+
 
 function getDistance(x1, y1, x2, y2) {
   return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
@@ -84,6 +86,10 @@ function getRelativeWidth(n) {
 }
 function getRelativeHeight(n) {
   return n * window.innerHeight;
+}
+
+function getRandomArbitrary(min, max) {
+  return Math.random() * (max - min) + min;
 }
 
 function getBaseUrl() {
@@ -158,7 +164,8 @@ export {
   radToDegree,
   degreeToRad,
   getAngleFromCoords,
-  getVectorTangentToCircle,
+  getRandomArbitrary,
+  getCoordsFromCenterRelative,
   getDistance,
   getDotProduct,
   getCircleParams,

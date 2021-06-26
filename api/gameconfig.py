@@ -2,8 +2,9 @@
 # [% of window width, % of window height]
 # by default (if height and width same) --> width is used
 config = {
-  'startBall': [0.5, 0.5],
-  'initBallSpeed': [0.0003, -0.0001], 
+  # 'startBall': [0.5, 0.5],
+  'startBall': [0, 0],  
+  'initBallSpeed': [8e-6, -8e-6], 
   # 'initBallSpeed': [0.0, 0.0], 
   # 'ratioBoundaryPlayer': 0.2,
   'ratioBoundaryPlayer': 1.,

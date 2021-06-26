@@ -3,12 +3,13 @@ import { Stage, Layer, Arc } from 'react-konva';
 
 import {
   getDotProduct,
+  radToDegree,
   getAngleFromCoords,
-  getVectorTangentToCircle,
   getDistance,
   getCircleParams,
   getRelativeWidth, 
   getRelativeHeight,
+  getCoordsFromCenterRelative,
 } from './utility';
 
 import { BackgroundRect, Ball, PlayerArc } from './GameObjects';
@@ -17,9 +18,12 @@ import { socketGame } from './SocketWrapper';
 
 class BallState {
   constructor(gameConfig) {
+    /* Position, format [x, y] where x & y are numbers between -1 and 1,
+       representing how far from the center is as ratio to radius */
     this.position = gameConfig.startBall;
     this.speed = gameConfig.initBallSpeed;
     this.size = gameConfig.ballSize;
+    this.lastAngleRebound = Infinity;
   }
 }
 
@@ -75,14 +79,15 @@ class Players {
 
 
 function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
-  let x = prev_position[0] + speed[0] * (curr_ts - last_ts); // diff is in ms
-  let y = prev_position[1] + speed[1] * (curr_ts - last_ts);
+  let speedScalingRatio = Math.sqrt(Math.min(getRelativeWidth(1), getRelativeHeight(1)));
+  let x = prev_position[0] + speedScalingRatio * speed[0] * (curr_ts - last_ts); // diff is in ms
+  let y = prev_position[1] + speedScalingRatio * speed[1] * (curr_ts - last_ts);
   return [x, y];
 }
 
 
 function GameEngine(props) {
-  const timeoutPeriodBall = 10; // ms
+  const timeoutPeriodBall = 20; // ms
   const timeoutPeriodPlayer = 20; // ms
 
   const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
@@ -99,33 +104,25 @@ function GameEngine(props) {
     return Math.floor(angle / players.boundaryAngle);
   }
 
-  function getSpeedBoundaryNormalAngle(x, y, playerIndex) {
-    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-    let distCenter = getDistance(x, y, xCenter, yCenter); // ball might not be exactly at dist=radius from center
-    let tangentVector = getVectorTangentToCircle(x, xCenter, distCenter);
-    console.log("tangent Vector:", tangentVector)
-
-    let dotProduct = getDotProduct(tangentVector, ballObj.speed);
-    let sizeSpeedVec = Math.sqrt(Math.pow(ballObj.speed[0], 2) + Math.pow(ballObj.speed[1], 2));
-    let sizeBoundaryVec = Math.sqrt(Math.pow(tangentVector[0], 2) + Math.pow(tangentVector[1], 2));
-    let cosAngle = dotProduct / (sizeSpeedVec * sizeBoundaryVec);
-
-    return Math.acos(cosAngle);
-  }
-
   // return [whetherBoundaryIsHit, ifPointWasScore/Lost, whichPlayerArea]
-  function checkPlayerThere(x, y) {
-    x = getRelativeWidth(x);
-    y = getRelativeHeight(y);
+  function checkPlayerThere(x, y, lastAngleRebound) {
+    // x = getRelativeWidth(x);
+    // y = getRelativeHeight(y);
+    [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
 
     let playerIndex = getBallPlayerArea(x, y);
     let [xCenter, yCenter, radius] = getCircleParams(props.borderLimits);
     let ballDistanceCenter = getDistance(x, y, xCenter, yCenter);
     let boundaryHit = false, pointScored = false;
 
-    if (ballDistanceCenter >= radius) {
+    let ballAngle = getAngleFromCoords(x, y, xCenter, yCenter);
+    let angleDiffLastRebound = Math.abs(ballAngle - lastAngleRebound);
+    let angleThreshold = 0.01 * 360;
+
+    if (ballDistanceCenter >= radius && angleDiffLastRebound > angleThreshold) {
       boundaryHit = true;
-      let ballAngle = getAngleFromCoords(x, y, xCenter, yCenter);
+      console.log(lastAngleRebound, ballAngle, angleDiffLastRebound, radius)
+      
       let playerAngle = players.angles[playerIndex];
 
       if (ballAngle < playerAngle || ballAngle > (playerAngle + players.playerAngle)) {
@@ -137,17 +134,20 @@ function GameEngine(props) {
   }
 
   function getReboundSpeed(x, y, playerIndex) {
-    let normalAngle = getSpeedBoundaryNormalAngle(x, y, playerIndex);
-    let normalVec = [Math.cos(normalAngle), Math.sin(normalAngle)];
-    console.log("normal Angle:", normalAngle);
-    console.log("normal vec:", normalVec);
+    // x = getRelativeWidth(x);
+    // y = getRelativeHeight(y);
+    [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
+    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
+
+    let normalVec = [xCenter - x, yCenter - y];
     let prevSpeed = ballObj.speed;
     let ratioPerpPart = getDotProduct(prevSpeed, normalVec) / getDotProduct(normalVec, normalVec);
     let perpendicularPart = [normalVec[0] * ratioPerpPart, normalVec[1] * ratioPerpPart];
     let parallelPart = [prevSpeed[0] - perpendicularPart[0], prevSpeed[1] - perpendicularPart[1]];
 
-    console.log("per part", perpendicularPart);
-    console.log("para part", parallelPart)
+    // let parallelPart  = [normalVec[0] * ratioPerpPart, normalVec[1] * ratioPerpPart];
+    // let perpendicularPart  = [prevSpeed[0] - parallelPart[0], prevSpeed[1] - parallelPart[1]];
+
 
     return [parallelPart[0] - perpendicularPart[0], parallelPart[1] - perpendicularPart[1]];;
   }
@@ -159,23 +159,35 @@ function GameEngine(props) {
     setGameOn(false);
   }
 
-  function updateSpeed(x, y) {
-    const [boundaryHit, pointScored, playerIndex] = checkPlayerThere(x, y);
+  function updateSpeed(x, y, lastAngleRebound) {
+    const [boundaryHit, pointScored, playerIndex] = checkPlayerThere(x, y, lastAngleRebound);
     let clientBoundary = playerIndex === props.gameConfig.playerIndex;
 
     if (!boundaryHit) {
-      return ballObj.speed;
+      return [ballObj.speed, lastAngleRebound];
     }
     else if (boundaryHit && !pointScored) {
       let newSpeed = getReboundSpeed(x, y, playerIndex);
+      let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
+      // let angleRebound = getAngleFromCoords(x, y, xCenter, yCenter);
+      // console.log("pos", x, y, .5, .5)
+      // let angleRebound = getAngleFromCoords(getRelativeWidth(x), getRelativeHeight(y), xCenter, yCenter);
+      let angleRebound = getAngleFromCoords(x, y, 0, 0);
+
       if (clientBoundary) {
-        socketGame.updatePlayerRebound([x, y], newSpeed);
+        socketGame.updatePlayerRebound(
+          [x, y], // TODO: check this
+          // [x - ballObj.size / 2, y - ballObj.size / 2], // need to send position of top left corner to others 
+          newSpeed, 
+          angleRebound
+        );
       }
-      return newSpeed;
+      console.log("new angelREbound", angleRebound)
+      return [newSpeed, angleRebound];
     } 
     else {
       handleEndPoint(clientBoundary);
-      return [0, 0];
+      return [[0, 0], Infinity];
     }
   }
 
@@ -183,11 +195,18 @@ function GameEngine(props) {
   function moveBall() {
     let curr_ts = Date.now();
     if (lastBallTs) {
-      let [x, y] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, lastBallTs);
-      let newSpeed = updateSpeed(x + ballObj.size / 2, y + ballObj.size / 2); // use center of ball as ref
+      // getUpdatedBallCords returns value of x, y only between 0 and 1 --> need to scale to window width & height
+      let [xPercent, yPercent] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, lastBallTs);
+      let [newSpeed, angleRebound] = updateSpeed(
+        xPercent /*+ ballObj.size / 2 TODO: check if should put back */, 
+        yPercent /*+ ballObj.size / 2*/,
+        ballObj.lastAngleRebound
+      ); // use center of ball as ref
+      console.log("angelREbound change: ", ballObj.lastAngleRebound, angleRebound)
       setBallObj(Object.assign({}, ballObj, { 
-        position: [x, y], 
-        speed: newSpeed
+        position: [xPercent, yPercent], 
+        speed: newSpeed,
+        lastAngleRebound: angleRebound
       }));
     }
     setLastBallTs(curr_ts);
@@ -262,7 +281,7 @@ function GameEngine(props) {
 
 
   useEffect(() => {
-    /* This event listener sets ballObj but doesn't read its value so ne need to make it
+    /* This event listener sets ballObj but doesn't read its value so no need to make it
        dependent on it */
     socketGame.socket.on('game on', handleGameOn);
   }, []);
@@ -289,7 +308,7 @@ function GameEngine(props) {
       socketGame.socket.off('player move', handleOtherPlayerUpdate);
       socketGame.socket.off('player rebound', handlePlayerRebound);
     });
-  }, [players]);
+  }, [players, ballObj]);
 
 
   useEffect(() => setLastBallTs(gameOn ? Date.now() : null), [gameOn])
@@ -314,16 +333,21 @@ function GameEngine(props) {
   function handlePlayerRebound(update) {
     let rebound_pos = update.newBallPosition;
     let newSpeed = update.newBallSpeed;
-    let newPosition = getUpdatedBallCoords(rebound_pos, newSpeed, Date.now(), update.ts);
+    let now = Date.now();
+    let newPosition = getUpdatedBallCoords(rebound_pos, newSpeed, now, update.ts);
     
     setBallObj(Object.assign({}, ballObj, {
-      speed: newSpeed, position: newPosition
+      speed: newSpeed, 
+      position: newPosition,
+      lastAngleRebound: update.angleRebound
     }));
+    setLastBallTs(now);
   }
 
   function handleGameOn() {
     setBallObj(Object.assign({}, ballObj, {
-      position: props.gameConfig.startBall, speed: props.gameConfig.initBallSpeed
+      position: props.gameConfig.startBall, 
+      speed: props.gameConfig.initBallSpeed
     }));
     setGameOn(true);
   }
@@ -348,7 +372,7 @@ function GameEngine(props) {
     );
   }
 
-  // console.log(ballObj.position)
+  // console.log("render", ballObj)
   
   return (
     <Layer>      
@@ -356,7 +380,7 @@ function GameEngine(props) {
 
       <Ball 
         borderLimits={props.borderLimits} 
-        position={ballObj.position}
+        positionToCenter={ballObj.position}
         size={ballObj.size} />
     </Layer>
   );

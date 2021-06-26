@@ -51,7 +51,13 @@ def add_as_active_player(game_id):
   playerIndex, newPlayer = get_player_index(user_id, game_id)
   
   if newPlayer is None:
-    newPlayer = ActivePlayers(user_id=user_id, game_id=game_id, index=playerIndex)
+    pointLimit = psql_session.query(ActiveGames).filter_by(id=game_id).one().pointLimit
+    newPlayer = ActivePlayers(
+      user_id=user_id, 
+      game_id=game_id, 
+      index=playerIndex,
+      # score=pointLimit
+    )
     psql_session.add(newPlayer)
     psql_session.commit()
   
@@ -88,8 +94,8 @@ def handle_join_game_event():
   emit_private('game config', game_config)
 
 # TODO: fix
-  # if game_config['playerIndex'] == game_query.numPlayers-1:
-  if True:
+  if game_config['playerIndex'] == game_query.numPlayers-1:
+  # if True:
     all_players_ready_alert(game_id)
 
 
@@ -141,7 +147,9 @@ def update_player_scores(game_id, user_id):
   query_shell = psql_session.query(ActivePlayers).\
     filter(ActivePlayers.game_id == game_id).\
     filter(ActivePlayers.user_id != user_id)
+  # query_shell.update({ 'score': ActivePlayers.score - 1 })
   query_shell.update({ 'score': ActivePlayers.score + 1 })
+
 
   maxActivePlayer = get_game_winner(query_shell, game_id)
   if maxActivePlayer is not None: # game done

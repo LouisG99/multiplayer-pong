@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Rect, Arc } from 'react-konva';
 
-import { getRelativeWidth, getRelativeHeight } from './utility';
+import { 
+  getRelativeWidth, 
+  getRelativeHeight,
+  getCoordsFromCenterRelative
+} from './utility';
 
 function BackgroundRect(props) {
   let backgroundColor = "#94C9F0";
@@ -11,15 +15,21 @@ function BackgroundRect(props) {
 }
 
 function Ball(props) {
-  /* x, y define where top left of object is */
   const backgroundColor = "#ffffff";
 
-  let size = getRelativeWidth(props.size);
-  let x = getRelativeWidth(props.position[0]); // no offset since defines top-left
-  let y = getRelativeHeight(props.position[1]);
+  let size = Math.min(getRelativeWidth(props.size), getRelativeHeight(props.size));
+   /* position define where top left of object is
+  with respect to the center of the circle (see comment in class Ball src/PongInterface.js) */
+  let position = getCoordsFromCenterRelative(props.positionToCenter, props.borderLimits);
 
   return (
-    <Rect x={x} y={y} width={size} height={size} fill={backgroundColor}/>
+    <Rect 
+      x={position[0]} 
+      y={position[1]} 
+      width={size} 
+      height={size} 
+      fill={backgroundColor}
+    />
   )
 }
 
