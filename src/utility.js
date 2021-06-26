@@ -19,7 +19,7 @@ function getAngleFromCoords(x, y, xCenter, yCenter) {
   let radAngle = Math.atan(yDiff / xDiff); // returns value between -pi/2 and pi/2
   if (radAngle > 0 && xDiff < 0 && yDiff < 0) {
     radAngle += Math.PI;
-  } else if (radAngle < 0 && xDiff < 0 && yDiff > 0) {
+  } else if (radAngle <= 0 && xDiff < 0 && yDiff > 0) {
     radAngle += Math.PI;
   }
 

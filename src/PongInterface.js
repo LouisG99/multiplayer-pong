@@ -18,7 +18,7 @@ import { socketGame } from './SocketWrapper';
 
 class BallState {
   constructor(gameConfig) {
-    /* Position, format [x, y] where x & y are numbers between -1 and 1,
+    /* Position of center ball, format [x, y] where x & y are numbers between -1 and 1,
        representing how far from the center is as ratio to radius */
     this.position = gameConfig.startBall;
     this.speed = gameConfig.initBallSpeed;
@@ -79,12 +79,11 @@ class Players {
 
 
 function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
-  let speedScalingRatio = Math.sqrt(Math.min(getRelativeWidth(1), getRelativeHeight(1)));
-  let x = prev_position[0] + speedScalingRatio * speed[0] * (curr_ts - last_ts); // diff is in ms
-  let y = prev_position[1] + speedScalingRatio * speed[1] * (curr_ts - last_ts);
+  // no need for a ratio, position depends on the circle, works on any window size
+  let x = prev_position[0] + speed[0] * (curr_ts - last_ts); // diff is in ms
+  let y = prev_position[1] + speed[1] * (curr_ts - last_ts);
   return [x, y];
 }
-
 
 function GameEngine(props) {
   const timeoutPeriodBall = 20; // ms
@@ -106,8 +105,6 @@ function GameEngine(props) {
 
   // return [whetherBoundaryIsHit, ifPointWasScore/Lost, whichPlayerArea]
   function checkPlayerThere(x, y, lastAngleRebound) {
-    // x = getRelativeWidth(x);
-    // y = getRelativeHeight(y);
     [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
 
     let playerIndex = getBallPlayerArea(x, y);
@@ -121,7 +118,7 @@ function GameEngine(props) {
 
     if (ballDistanceCenter >= radius && angleDiffLastRebound > angleThreshold) {
       boundaryHit = true;
-      console.log(lastAngleRebound, ballAngle, angleDiffLastRebound, radius)
+      // console.log("REBOUND", lastAngleRebound, ballAngle, angleDiffLastRebound, radius)
       
       let playerAngle = players.angles[playerIndex];
 
@@ -133,9 +130,7 @@ function GameEngine(props) {
     return [boundaryHit, pointScored, playerIndex];
   }
 
-  function getReboundSpeed(x, y, playerIndex) {
-    // x = getRelativeWidth(x);
-    // y = getRelativeHeight(y);
+  function getReboundSpeed(x, y) {
     [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
     let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
 
@@ -167,22 +162,16 @@ function GameEngine(props) {
       return [ballObj.speed, lastAngleRebound];
     }
     else if (boundaryHit && !pointScored) {
-      let newSpeed = getReboundSpeed(x, y, playerIndex);
-      let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
-      // let angleRebound = getAngleFromCoords(x, y, xCenter, yCenter);
-      // console.log("pos", x, y, .5, .5)
-      // let angleRebound = getAngleFromCoords(getRelativeWidth(x), getRelativeHeight(y), xCenter, yCenter);
-      let angleRebound = getAngleFromCoords(x, y, 0, 0);
+      let newSpeed = getReboundSpeed(x, y);
+      let angleRebound = getAngleFromCoords(x, y, 0, 0); // pos is relative to circle center
 
       if (clientBoundary) {
         socketGame.updatePlayerRebound(
-          [x, y], // TODO: check this
-          // [x - ballObj.size / 2, y - ballObj.size / 2], // need to send position of top left corner to others 
+          [x, y],
           newSpeed, 
           angleRebound
         );
       }
-      console.log("new angelREbound", angleRebound)
       return [newSpeed, angleRebound];
     } 
     else {
@@ -198,11 +187,10 @@ function GameEngine(props) {
       // getUpdatedBallCords returns value of x, y only between 0 and 1 --> need to scale to window width & height
       let [xPercent, yPercent] = getUpdatedBallCoords(ballObj.position, ballObj.speed, curr_ts, lastBallTs);
       let [newSpeed, angleRebound] = updateSpeed(
-        xPercent /*+ ballObj.size / 2 TODO: check if should put back */, 
-        yPercent /*+ ballObj.size / 2*/,
+        xPercent, 
+        yPercent,
         ballObj.lastAngleRebound
-      ); // use center of ball as ref
-      console.log("angelREbound change: ", ballObj.lastAngleRebound, angleRebound)
+      );
       setBallObj(Object.assign({}, ballObj, { 
         position: [xPercent, yPercent], 
         speed: newSpeed,

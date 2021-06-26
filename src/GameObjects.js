@@ -18,14 +18,14 @@ function Ball(props) {
   const backgroundColor = "#ffffff";
 
   let size = Math.min(getRelativeWidth(props.size), getRelativeHeight(props.size));
-   /* position define where top left of object is
+   /* position define where center of ball is
   with respect to the center of the circle (see comment in class Ball src/PongInterface.js) */
   let position = getCoordsFromCenterRelative(props.positionToCenter, props.borderLimits);
 
   return (
     <Rect 
-      x={position[0]} 
-      y={position[1]} 
+      x={position[0] - size / 2} // offset since Rect expects position of top left corner
+      y={position[1] - size / 2} 
       width={size} 
       height={size} 
       fill={backgroundColor}
