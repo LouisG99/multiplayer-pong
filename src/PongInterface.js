@@ -93,7 +93,11 @@ function GameEngine(props) {
   const [players, setPlayers] = useState(new Players(props.gameConfig, props.borderLimits));
   const [gameOn, setGameOn] = useState(false);
   const [lastBallTs, setLastBallTs] = useState(null);
+  const [pseudoRandIndex, setPseudoRandIndex] = useState(0);
 
+  function getNextPseudoRandIndex() {
+    return (pseudoRandIndex + 1) % props.gameConfig.pseudoRandXBounce.length;
+  }
 
   // returns index of which player "owns" section of "disk" the ball is in
   function getBallPlayerArea(x, y) {
@@ -119,7 +123,6 @@ function GameEngine(props) {
     if (ballDistanceCenter >= radius && angleDiffLastRebound > angleThreshold) {
       boundaryHit = true;
       // console.log("REBOUND", lastAngleRebound, ballAngle, angleDiffLastRebound, radius)
-      
       let playerAngle = players.angles[playerIndex];
 
       if (ballAngle < playerAngle || ballAngle > (playerAngle + players.playerAngle)) {
@@ -143,8 +146,21 @@ function GameEngine(props) {
     // let parallelPart  = [normalVec[0] * ratioPerpPart, normalVec[1] * ratioPerpPart];
     // let perpendicularPart  = [prevSpeed[0] - parallelPart[0], prevSpeed[1] - parallelPart[1]];
 
+    let totalSpeed = Math.sqrt(Math.pow(prevSpeed[0], 2) + Math.pow(prevSpeed[1], 2));
+    let xSpeedNoRand = parallelPart[0] - perpendicularPart[0];
+    let ySpeedNoRand = parallelPart[1] - perpendicularPart[1];
+    let randXFactor = props.gameConfig.pseudoRandXBounce[pseudoRandIndex];
+    let xSpeed = Math.max(-totalSpeed, Math.min(
+      xSpeedNoRand + props.gameConfig.seedXBounce * randXFactor, totalSpeed
+    ));
+    let ySpeed = Math.sqrt(Math.pow(totalSpeed, 2) - Math.pow(xSpeed, 2));
+    if (ySpeedNoRand < 0) {
+      ySpeed *= -1;
+    }
 
-    return [parallelPart[0] - perpendicularPart[0], parallelPart[1] - perpendicularPart[1]];;
+    console.log(totalSpeed, xSpeed, ySpeed, randXFactor)
+
+    return [xSpeed, ySpeed];
   }
 
   function handleEndPoint(clientBoundary) {
@@ -164,14 +180,17 @@ function GameEngine(props) {
     else if (boundaryHit && !pointScored) {
       let newSpeed = getReboundSpeed(x, y);
       let angleRebound = getAngleFromCoords(x, y, 0, 0); // pos is relative to circle center
+      let nextPseudoRandIndex = getNextPseudoRandIndex();
 
       if (clientBoundary) {
         socketGame.updatePlayerRebound(
           [x, y],
           newSpeed, 
-          angleRebound
+          angleRebound,
+          nextPseudoRandIndex
         );
       }
+      setPseudoRandIndex(nextPseudoRandIndex);
       return [newSpeed, angleRebound];
     } 
     else {
@@ -330,6 +349,7 @@ function GameEngine(props) {
       lastAngleRebound: update.angleRebound
     }));
     setLastBallTs(now);
+    setPseudoRandIndex(update.pseudoRandIndex);
   }
 
   function handleGameOn() {

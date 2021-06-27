@@ -9,7 +9,9 @@ config = {
   # 'ratioBoundaryPlayer': 0.2,
   'ratioBoundaryPlayer': 1.,
   'playerSpeed': 0.17, 
-  'ballSize': 0.025
+  'ballSize': 0.025,
+  'pseudoRandXBounce': [0.3, 1.2, -0.9, -0.5, 1.5],
+  'seedXBounce': 2e-4
 }
 
 pointTimeoutPeriod = 2 # seconds 

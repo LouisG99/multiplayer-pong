@@ -30,14 +30,15 @@ class SocketWrapper {
     });
   }
 
-  updatePlayerRebound(newPosition, newBallSpeed, angleRebound) {
+  updatePlayerRebound(newPosition, newBallSpeed, angleRebound, pseudoRandIndex) {
     // return;
     let update_ts = Date.now(); // independent of timezones
     this.socket.emit('player rebound', { 
       newBallPosition: newPosition, 
       newBallSpeed: newBallSpeed, 
       ts: update_ts,
-      angleRebound: angleRebound
+      angleRebound: angleRebound,
+      pseudoRandIndex: pseudoRandIndex
     });
   }
 
