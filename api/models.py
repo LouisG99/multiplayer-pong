@@ -23,7 +23,7 @@ class ActiveGames(BaseModel):
   __tablename__ = 'ActiveGames'
   id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
   numPlayers = db.Column(db.Integer, default=2)
-  pointLimit = db.Column(db.Integer, default=5)
+  pointLimit = db.Column(db.Integer, default=2) #TODO: change to 5 or 3
 
 
 class ActivePlayers(BaseModel):

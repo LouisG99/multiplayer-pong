@@ -86,23 +86,23 @@ function getUpdatedBallCoords(prev_position, speed, curr_ts, last_ts) {
   return [x, y];
 }
 
-function GameEngine(props) {
+function GameEngine({ borderLimits, gameConfig }) {
   const timeoutPeriodBall = 20; // ms
   const timeoutPeriodPlayer = 20; // ms
 
-  const [ballObj, setBallObj] = useState(new BallState(props.gameConfig));
-  const [players, setPlayers] = useState(new Players(props.gameConfig, props.borderLimits));
+  const [ballObj, setBallObj] = useState(new BallState(gameConfig));
+  const [players, setPlayers] = useState(new Players(gameConfig, borderLimits));
   const [gameOn, setGameOn] = useState(false);
   const [lastBallTs, setLastBallTs] = useState(null);
   const [pseudoRandIndex, setPseudoRandIndex] = useState(0);
 
   function getNextPseudoRandIndex() {
-    return (pseudoRandIndex + 1) % props.gameConfig.pseudoRandXBounce.length;
+    return (pseudoRandIndex + 1) % gameConfig.pseudoRandXBounce.length;
   }
 
   // returns index of which player "owns" section of "disk" the ball is in
   function getBallPlayerArea(x, y) {
-    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
+    let [xCenter, yCenter, _] = getCircleParams(borderLimits);
     let angle = getAngleFromCoords(x, y, xCenter, yCenter);
 
     return Math.floor(angle / players.boundaryAngle);
@@ -110,10 +110,10 @@ function GameEngine(props) {
 
   // return [whetherBoundaryIsHit, ifPointWasScore/Lost, whichPlayerArea]
   function checkPlayerThere(x, y, lastAngleRebound) {
-    [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
+    [x, y] = getCoordsFromCenterRelative([x, y], borderLimits);
 
     let playerIndex = getBallPlayerArea(x, y);
-    let [xCenter, yCenter, radius] = getCircleParams(props.borderLimits);
+    let [xCenter, yCenter, radius] = getCircleParams(borderLimits);
     let ballDistanceCenter = getDistance(x, y, xCenter, yCenter);
     let boundaryHit = false, pointScored = false;
 
@@ -123,7 +123,6 @@ function GameEngine(props) {
 
     if (ballDistanceCenter >= radius && angleDiffLastRebound > angleThreshold) {
       boundaryHit = true;
-      // console.log("REBOUND", lastAngleRebound, ballAngle, angleDiffLastRebound, radius)
       let playerAngle = players.angles[playerIndex];
 
       if (ballAngle < playerAngle || ballAngle > (playerAngle + players.playerAngle)) {
@@ -135,8 +134,8 @@ function GameEngine(props) {
   }
 
   function getReboundSpeed(x, y) {
-    [x, y] = getCoordsFromCenterRelative([x, y], props.borderLimits);
-    let [xCenter, yCenter, _] = getCircleParams(props.borderLimits);
+    [x, y] = getCoordsFromCenterRelative([x, y], borderLimits);
+    let [xCenter, yCenter, _] = getCircleParams(borderLimits);
 
     let normalVec = [xCenter - x, yCenter - y];
     let prevSpeed = ballObj.speed;
@@ -150,9 +149,9 @@ function GameEngine(props) {
     let totalSpeed = Math.sqrt(Math.pow(prevSpeed[0], 2) + Math.pow(prevSpeed[1], 2));
     let xSpeedNoRand = parallelPart[0] - perpendicularPart[0];
     let ySpeedNoRand = parallelPart[1] - perpendicularPart[1];
-    let randXFactor = props.gameConfig.pseudoRandXBounce[pseudoRandIndex];
+    let randXFactor = gameConfig.pseudoRandXBounce[pseudoRandIndex];
     let xSpeed = Math.max(-totalSpeed, Math.min(
-      xSpeedNoRand + props.gameConfig.seedXBounce * randXFactor, totalSpeed
+      xSpeedNoRand + gameConfig.seedXBounce * randXFactor, totalSpeed
     ));
     let ySpeed = Math.sqrt(Math.pow(totalSpeed, 2) - Math.pow(xSpeed, 2));
     if (ySpeedNoRand < 0) {
@@ -171,7 +170,7 @@ function GameEngine(props) {
 
   function updateSpeed(x, y, lastAngleRebound) {
     const [boundaryHit, pointScored, playerIndex] = checkPlayerThere(x, y, lastAngleRebound);
-    let clientBoundary = playerIndex === props.gameConfig.playerIndex;
+    let clientBoundary = playerIndex === gameConfig.playerIndex;
 
     if (!boundaryHit) {
       return [ballObj.speed, lastAngleRebound];
@@ -236,7 +235,7 @@ function GameEngine(props) {
     let curr_angle = players.angles[players.playerIndex];
 
     socketGame.updatePlayerMove(players.playerIndex, curr_angle, newMvnt);
-    setPlayers(Object.assign({}, players, { 
+    setPlayers(players => Object.assign({}, players, { 
       mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, newMvnt) 
     }));
   }
@@ -246,7 +245,7 @@ function GameEngine(props) {
       let curr_angle = players.angles[players.playerIndex];
       socketGame.updatePlayerMove(players.playerIndex, curr_angle, 0);
       
-      setPlayers(Object.assign({}, players, { 
+      setPlayers(players => Object.assign({}, players, { 
         mvnts: modifIndexOfArr(players.mvnts, players.playerIndex, 0) 
       }));
     }
@@ -277,7 +276,7 @@ function GameEngine(props) {
       }
 
       if (modified) {
-        setPlayers(Object.assign({}, players, { angles: p_cp.angles }));
+        setPlayers(players => Object.assign({}, players, { angles: p_cp.angles }));
       }
       last_ts = curr_ts;
     }
@@ -291,6 +290,14 @@ function GameEngine(props) {
        dependent on it */
     socketGame.socket.on('game on', handleGameOn);
   }, []);
+
+
+  useEffect(() => {
+    /* necessary for players to be reinitialized when game config changes.
+      Can't quite understand why, but otherwise a stale version of players 
+      reflecting the previous gameConfig is kept around */
+    setPlayers(new Players(gameConfig, borderLimits))
+  }, [gameConfig, borderLimits])
 
 
   useEffect(() => { // Loop for player movements
@@ -329,10 +336,9 @@ function GameEngine(props) {
   
 
   function handleOtherPlayerUpdate(update) {
-    let newAngles = modifIndexOfArr(players.angles, update.playerIndex, update.newAngle);
-    let newMvnts = modifIndexOfArr(players.mvnts, update.playerIndex, update.mvnt);
-    setPlayers(Object.assign({}, players, { 
-      angles: newAngles, mvnts: newMvnts
+    setPlayers(players => Object.assign({}, players, { 
+      angles: modifIndexOfArr(players.angles, update.playerIndex, update.newAngle), 
+      mvnts: modifIndexOfArr(players.mvnts, update.playerIndex, update.mvnt)
     }));
   }
 
@@ -353,21 +359,21 @@ function GameEngine(props) {
 
   function handleGameOn() {
     setBallObj(Object.assign({}, ballObj, {
-      position: props.gameConfig.startBall, 
-      speed: props.gameConfig.initBallSpeed
+      position: gameConfig.startBall, 
+      speed: gameConfig.initBallSpeed
     }));
     setGameOn(true);
   }
 
   let playerArcs = [];
-  let [xCenter, yCenter, innerRadius] = getCircleParams(props.borderLimits);
+  let [xCenter, yCenter, innerRadius] = getCircleParams(borderLimits);
 
-  for (var i = 0; i < props.gameConfig.numPlayers; i++) {
+  for (var i = 0; i < gameConfig.numPlayers; i++) {
     let boundaryRotation = players.getMinAngleFromIndex(i);
 
     playerArcs.push(
       <PlayerArc
-        isLocalPlayer={props.gameConfig.playerIndex === i}
+        isLocalPlayer={gameConfig.playerIndex === i}
         x={xCenter}
         y={yCenter}
         innerRadius={innerRadius}
@@ -378,13 +384,13 @@ function GameEngine(props) {
       />
     );
   }
-  
+
   return (
     <Layer>      
       {playerArcs}
 
       <Ball 
-        borderLimits={props.borderLimits} 
+        borderLimits={borderLimits} 
         positionToCenter={ballObj.position}
         size={ballObj.size} />
     </Layer>
@@ -403,7 +409,7 @@ function PongInterface(props) {
     return borderLimits;
   }
 
-  const [borderLimits, setBorderLimits] = useState(getInitBorderLimits());
+  const borderLimits = getInitBorderLimits();
   const [rectDims, setRectDims] = useState([window.innerWidth, window.innerHeight])
 
   useEffect(() => {
