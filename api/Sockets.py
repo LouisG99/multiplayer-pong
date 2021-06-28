@@ -1,7 +1,8 @@
+from sqlalchemy.sql.sqltypes import Boolean
 from flask_socketio import emit, join_room, leave_room, ConnectionRefusedError
 from sqlalchemy.dialects.postgresql import UUID
 
-from models import ActiveGames, ActivePlayers
+from models import ActiveGames, ActivePlayers, Users
 from api import app, db, psql_session, socketio
 
 import time
@@ -131,8 +132,13 @@ def get_game_winner(query_shell, game_id):
 
 
 # clean up ActiveGames and ActivePlayers
-def handle_end_game(game_id, maxActivePlayer):
-  winnerUser = maxActivePlayer.user
+def handle_end_game(game_id):
+  winnerPlayer = psql_session.query(ActivePlayers).\
+    filter(ActivePlayers.game_id == game_id).\
+    filter(ActivePlayers.index != -1).first()
+
+  winnerUser = psql_session.query(Users).\
+    filter_by(id=winnerPlayer.user_id).one()
 
   psql_session.query(ActivePlayers).filter_by(game_id=game_id).delete()
   psql_session.query(ActiveGames).filter_by(id=game_id).delete()
@@ -161,7 +167,7 @@ def send_config_updates(game_id, numPlayers):
 
 
 # returns true if game is finished
-def handle_player_out(game_id, player_query_shell):
+def handle_player_out(game_id, player_query_shell) -> Boolean:
   index_out = player_query_shell.first().index # only one row in query
   player_query_shell.update({ 'isOut': True, 'index': -1 })
   shift_players_index(game_id, index_out)
@@ -172,13 +178,13 @@ def handle_player_out(game_id, player_query_shell):
 
   numPlayers = game_query_shell.first().numPlayers # only one match game_id
   send_config_updates(game_id, numPlayers)
-
+  
   return numPlayers == 1
 
 
 # negative scoring (whoever missed the ball, loses the point -> out if reach 0 points)
 # return true if game continues, false if game is done (max score reached)
-def update_player_scores(game_id, user_id):
+def update_player_scores(game_id, user_id) -> Boolean:
   player_query_shell = psql_session.query(ActivePlayers).\
     filter(ActivePlayers.game_id == game_id).\
     filter(ActivePlayers.user_id == user_id)
@@ -192,11 +198,7 @@ def update_player_scores(game_id, user_id):
 
   psql_session.commit()
 
-  if isGameDone: # game done
-    handle_end_game(game_id, None) # TODO fix this
-    return False
-
-  return True
+  return not isGameDone
 
 
 @socketio.on('player lost point')
@@ -208,3 +210,5 @@ def handle_player_lost_point():
 
   if update_player_scores(game_id, user_id): # game goes on
     wait_and_game_on(game_id)
+  else:
+    handle_end_game(game_id)
