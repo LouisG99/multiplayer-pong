@@ -32,6 +32,7 @@ class ActivePlayers(BaseModel):
   game_id = db.Column(UUID(as_uuid=True), db.ForeignKey(ActiveGames.id), nullable=False)
   index = db.Column(db.Integer, nullable=False)
   score = db.Column(db.Integer, default=0, nullable=False)
+  isOut = db.Column(db.Boolean, default=False)
 
   user = db.relationship('Users', foreign_keys='ActivePlayers.user_id')
   game = db.relationship('ActiveGames', foreign_keys='ActivePlayers.game_id')

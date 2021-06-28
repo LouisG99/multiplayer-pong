@@ -28,11 +28,12 @@ def handle_new_connection():
 def handle_disconnection():
   print('disconnected')
   leave_room(session['username'])
+  leave_room(session['user_id'])
 
 
 # emit event to one client by sending it through its username room
-def emit_private(event, data):
-  emit(event, data, room=session['username'])
+def emit_private(event, data, user_id):
+  emit(event, data, room=user_id)
 
 
 def get_player_index(user_id, game_id):
@@ -56,7 +57,7 @@ def add_as_active_player(game_id):
       user_id=user_id, 
       game_id=game_id, 
       index=playerIndex,
-      # score=pointLimit
+      score=pointLimit
     )
     psql_session.add(newPlayer)
     psql_session.commit()
@@ -85,13 +86,15 @@ def handle_join_game_event():
   game_query = ActiveGames.query.filter_by(id=game_id).one_or_none()
 
   join_room(game_id)
+  join_room(session['user_id'])
+
   print('JOINED ROOM')
   
   from gameconfig import config
   game_config = config.copy()
   game_config['playerIndex'] = add_as_active_player(game_id)
   game_config['numPlayers'] = game_query.numPlayers
-  emit_private('game config', game_config)
+  emit_private('game config', game_config, session['user_id'])
 
 # TODO: fix
   if game_config['playerIndex'] == game_query.numPlayers-1:
@@ -107,7 +110,6 @@ def handle_player_move(data):
 
 @socketio.on('player rebound')
 def handle_player_rebound(data):
-  print(data)
   game_id = session['game_id']
   emit('player rebound', data, room=game_id, include_self=False)
 
@@ -139,24 +141,62 @@ def handle_end_game(game_id, maxActivePlayer):
   emit('game end', { 'winner': winnerUser.username }, room=game_id)
 
 
-# TODO: change this to be negative scoring -> when ball goes in a player area he loses a point
-# last one standing typa thing
-#update scores of other players (player wins a point everytime another misses)
-# return true if game continues, false if game is done (max score reached)
-def update_player_scores(game_id, user_id):
+def shift_players_index(game_id, index_out):
   query_shell = psql_session.query(ActivePlayers).\
     filter(ActivePlayers.game_id == game_id).\
-    filter(ActivePlayers.user_id != user_id)
-  # query_shell.update({ 'score': ActivePlayers.score - 1 })
-  query_shell.update({ 'score': ActivePlayers.score + 1 })
+    filter(ActivePlayers.index > index_out)
+  query_shell.update({ 'index': ActivePlayers.index - 1})
 
 
-  maxActivePlayer = get_game_winner(query_shell, game_id)
-  if maxActivePlayer is not None: # game done
-    handle_end_game(game_id, maxActivePlayer)
+def send_config_updates(game_id, numPlayers):
+  game_players_query = psql_session.query(ActivePlayers).\
+    filter(ActivePlayers.game_id == game_id)
+  
+  for player in game_players_query.all():
+    from gameconfig import config
+    game_config = config.copy()
+    game_config['playerIndex'] = player.index
+    game_config['numPlayers'] = numPlayers
+    emit_private('game config', game_config, player.user_id)
+
+
+# returns true if game is finished
+def handle_player_out(game_id, player_query_shell):
+  index_out = player_query_shell.first().index # only one row in query
+  player_query_shell.update({ 'isOut': True, 'index': -1 })
+  shift_players_index(game_id, index_out)
+  
+  game_query_shell = psql_session.query(ActiveGames).\
+    filter(ActiveGames.id == game_id)
+  game_query_shell.update({ 'numPlayers': ActiveGames.numPlayers - 1 })
+
+  numPlayers = game_query_shell.first().numPlayers # only one match game_id
+  send_config_updates(game_id, numPlayers)
+
+  return numPlayers == 1
+
+
+# negative scoring (whoever missed the ball, loses the point -> out if reach 0 points)
+# return true if game continues, false if game is done (max score reached)
+def update_player_scores(game_id, user_id):
+  player_query_shell = psql_session.query(ActivePlayers).\
+    filter(ActivePlayers.game_id == game_id).\
+    filter(ActivePlayers.user_id == user_id)
+
+  player_query_shell.update({ 'score': ActivePlayers.score - 1 })
+
+  if player_query_shell.first().score == 0: # only one match with user_id
+    isGameDone = handle_player_out(game_id, player_query_shell)
+  else:
+    isGameDone = False
 
   psql_session.commit()
-  return maxActivePlayer is None
+
+  if isGameDone: # game done
+    handle_end_game(game_id, None) # TODO fix this
+    return False
+
+  return True
 
 
 @socketio.on('player lost point')
@@ -168,5 +208,3 @@ def handle_player_lost_point():
 
   if update_player_scores(game_id, user_id): # game goes on
     wait_and_game_on(game_id)
-
-# 103c1c06-cf8c-42a8-aca7-4d4361b142ea

@@ -28,6 +28,7 @@ class BallState {
 }
 
 class Players {
+  // TODO: have socket listen to new config to recreate this
   constructor(gameConfig, borderLimitsIn) {
     let ratioBoundaryPlayer = gameConfig.ratioBoundaryPlayer;
     this.speed = gameConfig.playerSpeed;
@@ -157,8 +158,6 @@ function GameEngine(props) {
     if (ySpeedNoRand < 0) {
       ySpeed *= -1;
     }
-
-    console.log(totalSpeed, xSpeed, ySpeed, randXFactor)
 
     return [xSpeed, ySpeed];
   }
@@ -379,8 +378,6 @@ function GameEngine(props) {
       />
     );
   }
-
-  // console.log("render", ballObj)
   
   return (
     <Layer>      

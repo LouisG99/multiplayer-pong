@@ -4,10 +4,10 @@
 config = {
   # 'startBall': [0.5, 0.5],
   'startBall': [0, 0],  
-  'initBallSpeed': [8e-4, -8e-4], 
+  'initBallSpeed': [0, 8e-4], 
   # 'initBallSpeed': [0.0, 0.0], 
-  # 'ratioBoundaryPlayer': 0.2,
-  'ratioBoundaryPlayer': 1.,
+  'ratioBoundaryPlayer': 0.2,
+  # 'ratioBoundaryPlayer': 1.,
   'playerSpeed': 0.17, 
   'ballSize': 0.025,
   'pseudoRandXBounce': [0.3, 1.2, -0.9, -0.5, 1.5],

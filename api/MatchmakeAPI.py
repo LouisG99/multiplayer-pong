@@ -18,7 +18,9 @@ def create_game():
     return { 'success': False, 'message': 'Incorrect game config' }
 
   user_id = session['user_id']
-  new_activeGame = ActiveGames(numPlayers=num_players)
+  new_activeGame = ActiveGames(
+    numPlayers=num_players# , pointLimit=default, i.e. 5
+  )
   psql_session.add(new_activeGame)
   psql_session.commit()
 
